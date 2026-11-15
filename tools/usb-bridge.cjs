@@ -21,9 +21,9 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===11){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===12){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
-  const state=window.__thor={version:11,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:12,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -40,12 +40,15 @@ function inputs() {
   };
   const menuSelectors=['#npc-menu','#menu-win','#inventory','#petbag','#bank','#skills','#macro-win','#missions','#character'];
   const visible=x=>x&&x.getClientRects().length&&getComputedStyle(x).visibility!=='hidden';
-  const panel=()=>menuSelectors.map(s=>document.querySelector(s)).find(x=>x?.classList.contains('show')&&visible(x));
+  const panel=()=>[...document.querySelectorAll('.panel.show,[role="dialog"].show')]
+    .filter(x=>visible(x)&&!x.closest('[hidden]'))
+    .sort((a,b)=>(parseInt(getComputedStyle(b).zIndex)||0)-(parseInt(getComputedStyle(a).zIndex)||0))[0]
+    ||menuSelectors.map(s=>document.querySelector(s)).find(x=>x?.classList.contains('show')&&visible(x));
   const buttons=p=>{
-    const list=[...p.querySelectorAll('button,[role=button]')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
+    const list=[...p.querySelectorAll('button,[role=button],#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#mw-rows .skill,#mw-skills .skill')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
     return list.sort((a,b)=>Number(a.matches('.close,[data-close]'))-Number(b.matches('.close,[data-close]')));
   };
-  let highlighted;
+  let highlighted, dragSource, dragItem, dragMoved=false;
   function highlight(next){
     if(highlighted===next)return;
     highlighted?.classList.remove('thor-nav');
@@ -53,7 +56,7 @@ function inputs() {
     if(next){next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'nearest'});}
   }
   const style=document.createElement('style');
-  style.textContent='.thor-nav{outline:3px solid #9bdafe!important;outline-offset:2px;box-shadow:0 0 10px #5dbcf2!important}';
+  style.textContent='.thor-nav{outline:3px solid #9bdafe!important;outline-offset:2px;box-shadow:0 0 10px #5dbcf2!important}.thor-drag{outline:3px solid #e9bf70!important;outline-offset:2px}';
   document.head.appendChild(style);
   function navigate(command){
     const current=panel();
@@ -67,6 +70,7 @@ function inputs() {
     if(!current)return false;
     const list=buttons(current);
     if(command==='back'){
+      if(dragSource){dragSource.classList.remove('thor-drag');dragSource=null;dragItem=null;dragMoved=false;return true}
       const close=current.querySelector('h3 .close,.close,[data-close="'+current.id+'"]');
       if(close&&visible(close))close.click();
       else if(current.id==='menu-win')document.getElementById('menu-btn')?.click();
@@ -75,6 +79,27 @@ function inputs() {
     }
     if(!list.length)return false;
     if(!list.includes(highlighted)){highlight(list[0]);if(command!=='accept')return true}
+    if(command==='downAccept'){
+      if(!highlighted.matches('.slot,.skill')){highlighted.click();highlight(undefined);return true}
+      dragSource=highlighted;dragItem=highlighted.dataset.item||null;dragMoved=false;
+      dragSource.classList.add('thor-drag');return true;
+    }
+    if(command==='upAccept'){
+      if(!dragSource)return true;
+      const source=dragSource, target=highlighted, item=dragItem;
+      source.classList.remove('thor-drag');dragSource=null;dragItem=null;
+      if(dragMoved&&target&&target!==source&&source.isConnected&&target.isConnected){
+        const transfer=new DataTransfer();
+        if(item)transfer.setData('text/plain',item);
+        else source.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+        if(transfer.types.length){
+          target.dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+          target.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+          source.dispatchEvent(new DragEvent('dragend',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+        }
+      }else if(!dragMoved&&source.isConnected)source.click();
+      dragMoved=false;return true;
+    }
     if(command==='accept'){highlighted.click();highlight(undefined);return true}
     const horizontal=command==='left'||command==='right', sign=command==='left'||command==='up'?-1:1;
     const center=x=>{const r=x.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]};
@@ -87,7 +112,7 @@ function inputs() {
       const distance=along+across*3;
       if(distance<score){best=candidate;score=distance}
     }
-    if(best)highlight(best);
+    if(best){if(dragSource)dragMoved=true;highlight(best)}
     return true;
   }
   state.navigate=navigate;
@@ -97,8 +122,13 @@ function inputs() {
   const watched=[...Object.keys(navButtons).map(Number),4,5,6,7,8,10,11,2,3];
   const trustedNav={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',Enter:'accept',Escape:'back',Backspace:'back'};
   window.addEventListener('keydown',e=>{
-    if(!active()||!e.isTrusted||e.repeat||/^(INPUT|SELECT|TEXTAREA)$/.test(e.target?.tagName)||!panel()||!trustedNav[e.key])return;
-    if(navigate(trustedNav[e.key])){e.preventDefault();e.stopImmediatePropagation()}
+    if(!active()||!e.isTrusted||e.repeat||/^(INPUT|SELECT|TEXTAREA)$/.test(e.target?.tagName)||!trustedNav[e.key])return;
+    if(panel())navigate(e.key==='Enter'?'downAccept':trustedNav[e.key]);
+    if(panel()||e.key.startsWith('Arrow')){e.preventDefault();e.stopImmediatePropagation()}
+  },true);
+  window.addEventListener('keyup',e=>{
+    if(!active()||!e.isTrusted||e.key!=='Enter'||!panel())return;
+    navigate('upAccept');e.preventDefault();e.stopImmediatePropagation();
   },true);
   const blocked=new Set([...watched,4]);
   function active(){return window.__thor===state&&Date.now()<state.until&&document.hasFocus()&&!!document.querySelector('#hud.show')}
@@ -108,7 +138,8 @@ function inputs() {
       if(!active())return pads;
       const menu=!!panel();
       return Array.from(pads,pad=>pad&&new Proxy(pad,{get(target,prop){
-        if(prop==='buttons')return Array.from(target.buttons,(button,i)=>(menu?blocked.has(i):([4,9,10,11].includes(i)||(target.buttons[4]?.pressed&&!!state.bind['C4_'+i])))?{pressed:false,touched:false,value:0}:button);
+        if(prop==='buttons')return Array.from(target.buttons,(button,i)=>(menu?blocked.has(i):([4,9,10,11,12,13,14,15].includes(i)||(target.buttons[4]?.pressed&&!!state.bind['C4_'+i])))?{pressed:false,touched:false,value:0}:button);
+        if(prop==='axes'&&!target.mapping&&target.axes.length>=8)return Array.from(target.axes,(axis,i)=>i===6||i===7?0:axis);
         const value=Reflect.get(target,prop,target);
         return typeof value==='function'?value.bind(target):value;
       }}));
@@ -138,10 +169,11 @@ function inputs() {
           else [...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===binding.value&&!x.classList.contains('nomp'))?.click();
         }
         else if(i===9)navigate('start');
-        else if(menu&&navButtons[i])navigate(navButtons[i]);
+        else if(menu&&navButtons[i])navigate(i===0?'downAccept':navButtons[i]);
         else if(!menu&&i===10)state.combat('target');
         else if(!menu&&i===11)state.combat('attack');
       }
+      if(menu&&previous.has(0)&&!now.has(0))navigate('upAccept');
       previous=now;
     }
     requestAnimationFrame(poll);
@@ -358,7 +390,7 @@ function valid(a) {
   const digits=v=>typeof v==='string'&&/^\d{1,9}$/.test(v);
   const row=v=>typeof v==='string'&&/^[0-3]$/.test(v);
   if(a.type==='combo')return typeof a.value==='string'&&/^C4_[0-35-7]$/.test(a.value);
-  if(a.type==='nav')return ['start','back','left','right','up','down','accept'].includes(a.value);
+  if(a.type==='nav')return ['start','back','left','right','up','down','accept','downAccept','upAccept'].includes(a.value);
   if(a.type==='combat')return ['target','attack'].includes(a.value);
   if(a.type==='bind'){
     if(!a.value||typeof a.value!=='object')return false;

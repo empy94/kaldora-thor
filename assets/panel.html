@@ -152,13 +152,14 @@ try{
 const activeBindings=()=>({...skillBindings,...macroBindings});
 const same=(a,b)=>Object.keys(a||{}).length===Object.keys(b||{}).length&&Object.entries(a||{}).every(([k,v])=>b?.[k]?.type===v.type&&b[k].value===v.value);
 function notice(msg){$('feedback').textContent=msg;clearTimeout(timer);timer=setTimeout(()=>$('feedback').textContent='',2200)}
+const queuedNavigation=[];
 function send(type,value,done){
- if(pending){if(type!=='pad')notice('One action at a time');return}
+ if(pending){if(type==='nav')queuedNavigation.push([type,value,done]);else if(type!=='pad')notice('One action at a time');return}
  if(!d.online){notice('USB link unavailable');return}
  pending=true;complete=done;
  location.href='kaldorathor://action?data='+encodeURIComponent(JSON.stringify({type,value}));
 }
-window.actionResult=ok=>{pending=false;if(ok)complete?.();else notice('Action not confirmed');complete=null};
+window.actionResult=ok=>{pending=false;const callback=complete;complete=null;if(ok)callback?.();else notice('Action not confirmed');if(!pending&&queuedNavigation.length)send(...queuedNavigation.shift())};
 function select(i){
  const previous=tab;
  tab=(i+tabs.length)%tabs.length;cursor=-1;
@@ -183,7 +184,7 @@ window.padKey=k=>{
  const index=physical[k];
  if(index!=null){localHeld.add(index);inspected=index;drawController();if(capture){capturePress(index);return}}
  if(k==='BUTTON_START'){if(mode)toggleNav();select(4);send('nav','start');return}
- const native={DPAD_UP:'up',DPAD_DOWN:'down',DPAD_LEFT:'left',DPAD_RIGHT:'right',DPAD_CENTER:'accept',BUTTON_A:'accept',BUTTON_B:'back'};
+ const native={DPAD_UP:'up',DPAD_DOWN:'down',DPAD_LEFT:'left',DPAD_RIGHT:'right',DPAD_CENTER:'accept',BUTTON_A:'downAccept',BUTTON_B:'back'};
  if(d.nativeMenu&&native[k]){if(mode)toggleNav();send('nav',native[k]);return}
  if(!d.nativeMenu&&!mode&&localHeld.has(4)&&index!==4&&index!=null&&activeBindings()['C4_'+index]){send('combo','C4_'+index);return}
  if(k==='BUTTON_THUMBL'||k==='BUTTON_THUMBR'){if(!mode&&!d.nativeMenu)send('combat',k==='BUTTON_THUMBL'?'target':'attack');return}
@@ -240,7 +241,7 @@ $('captureConfirm').onclick=()=>{
 let inspected, lastPress, controllerLayout='';
 window.padRelease=k=>{
  const index=physical[k];
- if(index!=null){localHeld.delete(index);drawController();if(capture)captureRelease()}
+ if(index!=null){localHeld.delete(index);drawController();if(capture){captureRelease();return}if(k==='BUTTON_A'&&d.nativeMenu)send('nav','upAccept')}
 };
 window.resetPad=()=>{localHeld.clear();drawController()};
 function drawGuide(){
