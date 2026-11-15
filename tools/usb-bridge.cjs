@@ -21,10 +21,10 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===32){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===33){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:32,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:33,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -191,6 +191,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     navigate('upAccept');e.preventDefault();e.stopImmediatePropagation();
   },true);
   const blocked=new Set([...watched,4]);
+  const physicalKeys={0:'A4',1:'A5',2:'4',3:'5',4:'L1',5:'6',6:'A3',7:'A6',8:'SELECT',9:'START',10:'L3',11:'R3',12:'UP',13:'DOWN',14:'LEFT',15:'RIGHT'};
   function active(){return window.__thor===state&&Date.now()<state.until&&document.hasFocus()&&!!document.querySelector('#hud.show')}
   if(rawPads){
     navigator.getGamepads=()=>{
@@ -198,13 +199,13 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       if(!active())return pads;
       const menu=!!panel();
       return Array.from(pads,pad=>pad&&new Proxy(pad,{get(target,prop){
-        if(prop==='buttons')return Array.from(target.buttons,(button,i)=>(menu?blocked.has(i):((hasNativePad()?[0,1,2,3,4,5,6,7,9,10,11,12,13,14,15]:[4,9,10,11,12,13,14,15]).includes(i)||(target.buttons[4]?.pressed&&!!state.bind['C4_'+i])))?{pressed:false,touched:false,value:0}:button);
+        if(prop==='buttons')return Array.from(target.buttons,(button,i)=>(menu?blocked.has(i):((hasNativePad()?[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]:[4,8,9,10,11,12,13,14,15]).includes(i)||!!state.bind[physicalKeys[i]]||(target.buttons[4]?.pressed&&!!state.bind['C4_'+i])))?{pressed:false,touched:false,value:0}:button);
         if(prop==='axes'&&!target.mapping&&target.axes.length>=8)return Array.from(target.axes,(axis,i)=>i===6||i===7?0:axis);
         const value=Reflect.get(target,prop,target);
         return typeof value==='function'?value.bind(target):value;
       }}));
     };
-    let previous=new Set();
+    let previous=new Set(),l1Used=false;
     function poll(){
       if(window.__thor!==state)return;
       requestAnimationFrame(poll);
@@ -223,22 +224,22 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
         if(pad.axes[7]<-.65)now.add(12);else if(pad.axes[7]>.65)now.add(13);
       }
       state.pressed=[...now];
+      if(now.has(4)&&!previous.has(4))l1Used=false;
       for(const i of now){
         if(previous.has(i))continue;
         state.lastPress={button:i,at:Date.now()};
-        if(!menu&&i!==4&&now.has(4)&&state.bind['C4_'+i]){
-          const binding=state.bind['C4_'+i];
-          if(binding.type==='macro')state.lastMacro={row:binding.value,ok:state.runMacro(binding.value),at:Date.now()};
-          else [...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===binding.value&&!x.classList.contains('nomp'))?.click();
-        }
-        else if(!menu&&hasNativePad()&&[0,1,2,3,5,6,7].includes(i)){
-          state.performPad(i);
-        }
+        if(menu){if(i===9)navigate('start');else if(navButtons[i])navigate(i===0?'downAccept':navButtons[i]);continue}
+        if(i===4)continue;
+        if(now.has(4)&&state.bind['C4_'+i]){l1Used=true;state.performBinding('C4_'+i);continue}
+        const key=physicalKeys[i];
+        if(key&&state.bind[key]){state.performBinding(key);continue}
+        if(hasNativePad()&&[0,1,2,3,5,6,7].includes(i))state.performPad(i);
         else if(i===9)navigate('start');
-        else if(menu&&navButtons[i])navigate(i===0?'downAccept':navButtons[i]);
-        else if(!menu&&(i===10||i===11)){const key=i===10?'L3':'R3';if(state.bind[key])state.performBinding(key);else state.combat(i===10?'target':'attack')}
+        else if(i===8)state.select=(state.select||0)+1;
+        else if(i===10||i===11)state.combat(i===10?'target':'attack');
       }
       if(menu&&previous.has(0)&&!now.has(0))navigate('upAccept');
+      if(!menu&&previous.has(4)&&!now.has(4)&&!l1Used&&state.bind.L1)state.performBinding('L1');
       previous=now;
     }
     requestAnimationFrame(poll);
@@ -247,6 +248,16 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     const binding=state.bind[key];
     if(binding?.type==='macro'){const ok=state.runMacro(binding.value);state.lastMacro={row:binding.value,ok,at:Date.now()};return ok}
     if(binding?.type==='spell'){const skill=[...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===binding.value&&!x.classList.contains('nomp'));if(!skill)return false;skill.click();return true}
+    if(binding?.type==='action'){
+      const action=binding.value;
+      if(action==='target'||action==='attack')return state.combat(action);
+      if(action==='menu')return navigate('start');
+      if(action==='companion'){state.select=(state.select||0)+1;return true}
+      if(action==='interact')return !!Module.ccall('viewer_interact','number',[],[]);
+      if(action==='buff'&&typeof runBuffs==='function'){runBuffs();return true}
+      const ids={map:'map-btn',bag:'bag-btn',skills:'skills-btn',macro:'macro-btn',character:'char-btn',quests:'missions-btn'};
+      const button=document.getElementById(ids[action]);if(button){button.click();return true}
+    }
     return false;
   };
   state.performPad=index=>{
@@ -453,13 +464,7 @@ function action(a) {
   }
   if(a.type==='nav')return window.__thor?.navigate(a.value)||false;
   if(a.type==='combat')return window.__thor?.combat(a.value)||false;
-  if(a.type==='combo'){
-    const b=window.__thor?.bind[a.value];
-    if(!b||window.__thor.menu())return false;
-    if(b.type==='macro')return window.__thor.runMacro(b.value);
-    const skill=[...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===b.value&&!x.classList.contains('nomp'));
-    if(!skill)return false;skill.click();return true;
-  }
+  if(a.type==='combo'){if(window.__thor?.menu())return false;return window.__thor?.performBinding(a.value)||false}
   if(a.type==='gear'){
     if(typeof gearSets==='undefined'||typeof setWear!=='function')return false;
     const set=gearSets[a.value];
@@ -573,7 +578,7 @@ function valid(a) {
   const digits=v=>typeof v==='string'&&/^\d{1,9}$/.test(v);
   const row=v=>typeof v==='string'&&/^[0-3]$/.test(v);
   if(a.type==='nativePad')return Number.isInteger(a.value)&&a.value>=0&&a.value<=15;
-  if(a.type==='combo')return typeof a.value==='string'&&/^(?:C4_[0-35-7]|L3|R3)$/.test(a.value);
+  if(a.type==='combo')return typeof a.value==='string'&&/^(?:[4-6]|A[3-6]|C4_[0-35-7]|L1|L3|R3|START|SELECT|UP|DOWN|LEFT|RIGHT)$/.test(a.value);
   if(a.type==='effects')return ['0','1','2'].includes(String(a.value));
   if(a.type==='nav')return ['start','back','left','right','up','down','accept','downAccept','upAccept'].includes(a.value);
   if(a.type==='combat')return ['target','attack'].includes(a.value);
@@ -581,8 +586,9 @@ function valid(a) {
     if(!a.value||typeof a.value!=='object')return false;
     const used=new Set();
     return Object.entries(a.value).every(([k,v])=>{
-      if(!/^(?:[4-6]|A[3-6]|C4_[0-3]|C4_[5-7]|L3|R3)$/.test(k)||!v)return false;
+      if(!/^(?:[4-6]|A[3-6]|C4_[0-3]|C4_[5-7]|L1|L3|R3|START|SELECT|UP|DOWN|LEFT|RIGHT)$/.test(k)||!v)return false;
       if(v.type==='spell')return digits(v.value);
+      if(v.type==='action')return ['target','attack','interact','menu','companion','buff','map','bag','skills','macro','character','quests'].includes(v.value);
       if(v.type!=='macro'||!row(v.value)||used.has(v.value))return false;
       used.add(v.value);return true;
     });

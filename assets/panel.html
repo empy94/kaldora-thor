@@ -189,10 +189,10 @@ button:active{filter:brightness(1.2)}
 <div class="controllerDetail">
  <strong id="controllerButton">Press a button</strong>
  <p id="controllerInfo" hidden></p>
- <div id="controllerAssign" hidden><select id="controllerChoice" aria-label="Assign action"></select><button id="controllerSave">Save binding</button></div>
+ <div id="controllerAssign" hidden><button id="controllerCombo" hidden>L1 combination</button><select id="controllerChoice" aria-label="Assign action"></select><button id="controllerSave">Save binding</button><button id="controllerReset">Reset button</button></div>
 </div>
 </div>
-<div class="tools"><button id="openGameMenu">Game menu</button></div>
+<div class="tools"><button id="openGameMenu">Game menu</button><button id="resetAllControls">Reset all bindings</button><button id="confirmResetControls" hidden>Confirm reset</button></div>
 <div id="nativeControls" class="tools" hidden></div>
 </section>
 <section id="sets" hidden><div id="gearSets" class="gearSets"></div><div class="tools"><button id="editGearSets">Edit sets in game</button></div></section>
@@ -201,16 +201,17 @@ button:active{filter:brightness(1.2)}
 <div id="captureDialog" hidden role="dialog" aria-modal="true" aria-label="Record controller button"><div class="captureCard"><strong>Press a controller button</strong><p id="captureMessage">Release the button, then confirm.</p><div class="tools"><button id="captureConfirm" disabled>Confirm</button><button id="captureForce" hidden>Replace binding</button><button id="captureCancel">Cancel</button></div></div></div><output id="feedback" role="status"></output>
 <script>
 const $=id=>document.getElementById(id), tabs=[...document.querySelectorAll('nav button')];
-const keys={'4':'X','5':'Y','6':'R1','A3':'L2','A4':'A','A5':'B','A6':'R2','L3':'L3','R3':'R3'};
+const keys={'4':'X','5':'Y','6':'R1','A3':'L2','A4':'A','A5':'B','A6':'R2','L3':'L3','R3':'R3','L1':'L1','START':'Start','SELECT':'Select','UP':'D-pad Up','DOWN':'D-pad Down','LEFT':'D-pad Left','RIGHT':'D-pad Right'};
 for(const [index,key] of Object.entries({0:'A4',1:'A5',2:'4',3:'5',5:'6',6:'A3',7:'A6'}))keys['C4_'+index]='L1 + '+keys[key];
 const padCodes={BUTTON_X:'2',BUTTON_Y:'3',BUTTON_R1:'4',BUTTON_L2:'5',BUTTON_A:'6',BUTTON_B:'7',BUTTON_R2:'8'};
 let d={},tab=0,mode=false,cursor=-1,group='inv',row=0,macroSlot=0,pending=false,complete,timer,restored=false,lastSelect=null,mapRequested=false;
-let skillBindings={},macroBindings={},whisper='', selectedSkill='', pickSkill=false, pickMacro=false;
+let skillBindings={},macroBindings={},actionBindings={},whisper='', selectedSkill='', pickSkill=false, pickMacro=false;
 try{
  const old=JSON.parse(localStorage.getItem('bindings')||'{}');
  const saved=JSON.parse(localStorage.getItem('controllerProfiles')||'null');
  skillBindings=saved?.skills||Object.fromEntries(Object.entries(old).filter(([,b])=>b.type==='spell'));
- macroBindings=saved?.macros||Object.fromEntries(Object.entries(old).filter(([,b])=>b.type==='macro'));
+ macroBindings=saved?.macros||(Object.keys(old).length?Object.fromEntries(Object.entries(old).filter(([,b])=>b.type==='macro')):{'6':{type:'macro',value:'0'},'A6':{type:'macro',value:'1'}});
+ actionBindings=saved?.actions||{};
  delete skillBindings['3'];delete macroBindings['3'];
  const rows=new Set();
  for(const [k,b] of Object.entries(macroBindings)){
@@ -219,7 +220,7 @@ try{
  for(const k of Object.keys(skillBindings))if(!keys[k]||macroBindings[k])delete skillBindings[k];
  whisper=localStorage.getItem('lastWhisper')||'';
 }catch{}
-const activeBindings=()=>({...skillBindings,...macroBindings});
+const activeBindings=()=>({...actionBindings,...skillBindings,...macroBindings});
 const same=(a,b)=>Object.keys(a||{}).length===Object.keys(b||{}).length&&Object.entries(a||{}).every(([k,v])=>b?.[k]?.type===v.type&&b[k].value===v.value);
 function notice(msg){$('feedback').textContent=msg;clearTimeout(timer);timer=setTimeout(()=>$('feedback').textContent='',2200)}
 const queuedNavigation=[];
@@ -250,27 +251,39 @@ function toggleNav(){
  mode=!mode;cursor=-1;
  if(mode){notice('Companion navigation');cursor=-1;tabs[tab].focus({preventScroll:true})}else{document.activeElement.blur();notice('Game controls')}
 }
+function runAssigned(key){
+ const b=activeBindings()[key];if(!b)return false;
+ if(b.type==='action'&&b.value==='companion'){toggleNav();return true}
+ if(b.type==='action'&&b.value==='menu'){send('nav','start');return true}
+ send('combo',key);return true;
+}
 window.padKey=k=>{
  const index=physical[k];
- if(index!=null){localHeld.add(index);inspected=index;drawController();if(capture){capturePress(index);return}}
- if(k==='BUTTON_START'){if(mode)toggleNav();select(4);send('nav','start');return}
+ if(index!=null){localHeld.add(index);inspected=index;inspectedCombo='';drawController();if(capture){capturePress(index);return}}
  const native={DPAD_UP:'up',DPAD_DOWN:'down',DPAD_LEFT:'left',DPAD_RIGHT:'right',DPAD_CENTER:'accept',BUTTON_A:'downAccept',BUTTON_B:'back'};
- if(d.nativeMenu&&native[k]){if(mode)toggleNav();send('nav',native[k]);return}
- if(!d.nativeMenu&&!mode&&localHeld.has(4)&&index!==4&&index!=null&&activeBindings()['C4_'+index]){send('combo','C4_'+index);return}
- if(k==='BUTTON_THUMBL'||k==='BUTTON_THUMBR'){if(!mode&&!d.nativeMenu){const key=k==='BUTTON_THUMBL'?'L3':'R3';send(activeBindings()[key]?'combo':'combat',activeBindings()[key]?key:key==='L3'?'target':'attack')}return}
- if(k==='BUTTON_SELECT'||k==='BUTTON_MODE'){toggleNav();return}
+ if(d.nativeMenu){if(k==='BUTTON_START'){send('nav','start');return}if(native[k]){if(mode)toggleNav();send('nav',native[k]);return}}
  if(mode){
+  if(k==='BUTTON_START'){toggleNav();if(!runAssigned('START'))send('nav','start');return}
+  if(k==='BUTTON_SELECT'||k==='BUTTON_MODE'){toggleNav();return}
   if(k==='DPAD_LEFT'||k==='DPAD_RIGHT'){select(tab+(k==='DPAD_RIGHT'?1:-1));focusAt(0)}
   if(k==='DPAD_UP'||k==='DPAD_DOWN')focusAt(cursor+(k==='DPAD_DOWN'?1:-1));
   if(k==='BUTTON_A'){const el=controls()[cursor];if(el?.tagName==='INPUT'||el?.tagName==='SELECT')el.focus();else el?.click()}
-  if(k==='BUTTON_B')toggleNav();
- }else if(padCodes[k])send('pad',padCodes[k]);
+  if(k==='BUTTON_B')toggleNav();return;
+ }
+ if(index===4){l1Used=false;return}
+ if(localHeld.has(4)&&index!=null&&activeBindings()['C4_'+index]){l1Used=true;runAssigned('C4_'+index);return}
+ if(index!=null&&runAssigned(sourceFor[index]))return;
+ if(k==='BUTTON_START'){select(4);send('nav','start');return}
+ if(k==='BUTTON_THUMBL'||k==='BUTTON_THUMBR'){send('combat',k==='BUTTON_THUMBL'?'target':'attack');return}
+ if(k==='BUTTON_SELECT'||k==='BUTTON_MODE'){toggleNav();return}
+ if(padCodes[k])send('pad',padCodes[k]);
 };
 const physical={BUTTON_A:0,BUTTON_B:1,BUTTON_X:2,BUTTON_Y:3,BUTTON_L1:4,BUTTON_R1:5,BUTTON_L2:6,BUTTON_R2:7,BUTTON_SELECT:8,BUTTON_START:9,BUTTON_THUMBL:10,BUTTON_THUMBR:11,DPAD_UP:12,DPAD_DOWN:13,DPAD_LEFT:14,DPAD_RIGHT:15,DPAD_CENTER:0};
-const sourceFor={0:'A4',1:'A5',2:'4',3:'5',5:'6',6:'A3',7:'A6',10:'L3',11:'R3'};
-const defaults=['Interact / skill','Back / skill','Skill','Skill','Reserved','Skill','Skill','Skill','Companion navigation','Game menu','Target next','Basic attack','Menu up','Menu down','Menu left','Menu right'];
+const sourceFor={0:'A4',1:'A5',2:'4',3:'5',4:'L1',5:'6',6:'A3',7:'A6',8:'SELECT',9:'START',10:'L3',11:'R3',12:'UP',13:'DOWN',14:'LEFT',15:'RIGHT'};
+const actionLabels={target:'Next target',attack:'Basic attack',interact:'Interact / pick up',menu:'Game menu',companion:'Companion navigation',buff:'Cast buffs',map:'Map',bag:'Inventory',skills:'Skills window',macro:'Macros window',character:'Character window',quests:'Quests window'};
+const defaults=['Interact / skill','Back / skill','Skill','Skill','L1 combinations','Skill','Skill','Skill','Companion navigation','Game menu','Target next','Basic attack','Menu up','Menu down','Menu left','Menu right'];
 const localHeld=new Set();
-let capture=null;
+let capture=null,l1Used=false;
 function beginCapture(kind){
  if(kind==='skill'&&!selectedSkill){notice('Pick a skill first');return}
  capture={kind,pressed:new Set(),candidate:new Set(),ready:false};
@@ -291,15 +304,14 @@ function captureRelease(){
  let error='';
  if(values.length>1&&!(values.length===2&&values.includes(4)&&keys[key]))error='Use L1 with one assignable button.';
  else if(!key)error='This button is reserved for game controls.';
- else if(binding&&(capture.kind==='skill'?(binding.type!=='spell'||binding.value!==selectedSkill):(binding.type!=='macro'||binding.value!==String(row))))error='This button is already assigned to '+(binding.type==='macro'?'macro row '+(+binding.value+1):'a skill')+'.';
+ else if(binding&&(capture.kind==='skill'?(binding.type!=='spell'||binding.value!==selectedSkill):(binding.type!=='macro'||binding.value!==String(row))))error='This button is already assigned to '+(binding.type==='macro'?'macro row '+(+binding.value+1):binding.type==='action'?(actionLabels[binding.value]||'an action'):'a skill')+'.';
  capture.ready=!error;capture.key=key;
  const conflict=!!binding&&!!error&&!!keys[key]&&error.startsWith('This button');
  capture.canReplace=conflict;
  $('captureForce').hidden=!conflict;
  if(conflict){
-  const detail=binding.type==='macro'?'Macro row '+(+binding.value+1)+' (Macros)':
-    ((d.slots||[]).find(slot=>slot.id===binding.value)?.name||'Skill')+' (Skills)';
-  error=keys[key]+' is assigned to '+detail+'. Replace it or change it in '+(binding.type==='macro'?'Macros':'Skills')+'.';
+  const detail=binding.type==='macro'?'Macro row '+(+binding.value+1)+' (Macros)':binding.type==='action'?(actionLabels[binding.value]||'Action')+' (Controls)':((d.slots||[]).find(slot=>slot.id===binding.value)?.name||'Skill')+' (Skills)';
+  error=keys[key]+' is assigned to '+detail+'. Replace it or change it in '+(binding.type==='macro'?'Macros':binding.type==='action'?'Controls':'Skills')+'.';
  }
  document.querySelector('.captureCard').classList.toggle('error',!!error);
  $('captureMessage').textContent=error||keys[key]+' is available.';
@@ -311,8 +323,8 @@ $('captureCancel').onclick=()=>{capture=null;$('captureDialog').hidden=true};
 $('captureForce').onclick=()=>{
  if(!capture?.canReplace)return;
  const {kind,key}=capture;
- const skills={...skillBindings},macros={...macroBindings};
- delete skills[key];delete macros[key];
+ const skills={...skillBindings},macros={...macroBindings},actions={...actionBindings};
+ delete skills[key];delete macros[key];delete actions[key];
  if(kind==='skill'){
   for(const [k,b] of Object.entries(skills))if(b.value===selectedSkill)delete skills[k];
   skills[key]={type:'spell',value:selectedSkill};pickSkill=false;
@@ -320,7 +332,7 @@ $('captureForce').onclick=()=>{
   for(const [k,b] of Object.entries(macros))if(b.value===String(row))delete macros[k];
   macros[key]={type:'macro',value:String(row)};
  }
- capture=null;$('captureDialog').hidden=true;save(skills,macros);
+ capture=null;$('captureDialog').hidden=true;save(skills,macros,actions);
 };
 $('captureConfirm').onclick=()=>{
  if(!capture?.ready)return;
@@ -330,15 +342,16 @@ $('captureConfirm').onclick=()=>{
  $(kind==='skill'?'assignSkill':'bindMacro').click();
 };
 
-let inspected, lastPress, controllerLayout='';
+let inspected, inspectedCombo='', lastPress, controllerLayout='';
+document.querySelectorAll('[data-pad]').forEach(el=>el.addEventListener('click',()=>{inspected=Number(el.dataset.pad);inspectedCombo='';controllerLayout='';drawController()}));
 window.padRelease=k=>{
  const index=physical[k];
- if(index!=null){localHeld.delete(index);drawController();if(capture){captureRelease();return}if(k==='BUTTON_A'&&d.nativeMenu)send('nav','upAccept')}
+ if(index!=null){localHeld.delete(index);drawController();if(capture){captureRelease();return}if(k==='BUTTON_A'&&d.nativeMenu)send('nav','upAccept');if(index===4&&!l1Used&&!mode&&!d.nativeMenu)runAssigned('L1')}
 };
 window.resetPad=()=>{localHeld.clear();drawController()};
 function drawGuide(){
- const actionFor=(key,fallback)=>{const b=activeBindings()[key];return b?.type==='macro'?'Macro row '+(+b.value+1):b?.type==='spell'?(d.slots?.find(s=>s.id===b.value)?.name||'Assigned skill'):fallback};
- const entries=[['Left stick','Move'],['Right stick','Camera'],['L3',actionFor('L3','Target next')],['R3',actionFor('R3','Basic attack')],['Start','Game menu'],['Select','Companion navigation'],['D-pad','Navigate menus'],['A',actionFor('A4','Interact / skill')],['B',actionFor('A5','Back / skill')],['X',actionFor('4','Skill')],['Y',actionFor('5','Skill')],['L1','Modifier'],['R1',actionFor('6','Skill')],['L2',actionFor('A3','Skill')],['R2',actionFor('A6','Skill')],...Object.entries(keys).filter(([key])=>key.startsWith('C4_')&&activeBindings()[key]).map(([key,label])=>[label,actionFor(key,'')])];
+ const actionFor=(key,fallback)=>{const b=activeBindings()[key];return b?.type==='action'?(actionLabels[b.value]||b.value):b?.type==='macro'?'Macro row '+(+b.value+1):b?.type==='spell'?(d.slots?.find(s=>s.id===b.value)?.name||'Assigned skill'):fallback};
+ const entries=[['Left stick','Move'],['Right stick','Camera'],['L3',actionFor('L3','Target next')],['R3',actionFor('R3','Basic attack')],['Start',actionFor('START','Game menu')],['Select',actionFor('SELECT','Companion navigation')],['↑',actionFor('UP','Navigate menus')],['↓',actionFor('DOWN','Navigate menus')],['←',actionFor('LEFT','Navigate menus')],['→',actionFor('RIGHT','Navigate menus')],['A',actionFor('A4','Interact / skill')],['B',actionFor('A5','Back / skill')],['X',actionFor('4','Skill')],['Y',actionFor('5','Skill')],['L1',actionFor('L1','L1 combinations')],['R1',actionFor('6','Skill')],['L2',actionFor('A3','Skill')],['R2',actionFor('A6','Skill')],...Object.entries(keys).filter(([key])=>key.startsWith('C4_')&&activeBindings()[key]).map(([key,label])=>[label,actionFor(key,'')])];
  const guide=$('controlGuide'), fingerprint=JSON.stringify(entries);
  if(guide.dataset.entries===fingerprint)return;guide.dataset.entries=fingerprint;
  guide.replaceChildren(...entries.map(([key,action])=>{const line=document.createElement('div');line.className='guideRow';const k=document.createElement('span');k.className='guideKey';k.textContent=key;const a=document.createElement('span');a.className='guideAction';a.textContent=action;line.append(k,a);return line}));
@@ -351,38 +364,47 @@ function drawController(){
  const live=new Set([...(d.pressed||[]),...localHeld]);
  document.querySelectorAll('[data-pad]').forEach(e=>e.classList.toggle('on',live.has(+e.dataset.pad)));
  if(inspected==null)return;
- const key=sourceFor[inspected], binding=activeBindings()[key];
+ const key=inspectedCombo||sourceFor[inspected], binding=activeBindings()[key];
  const spellName=id=>d.slots?.find(s=>s.id===id)?.name;
  const options=key&&d.online?[
   ['default','Default action'],
+  ...Object.entries(actionLabels).map(([value,label])=>['action:'+value,label]),
   ...(d.realRows||[]).map((_,i)=>['macro:'+i,'Row '+(i+1)+(d.buffRows?.includes(i)?' · Buff':'')])
    .filter(([value])=>!Object.entries(macroBindings).some(([k,b])=>k!==key&&'macro:'+b.value===value)),
   ...[...new Map((d.slots||[]).filter(s=>s.id&&!Object.entries(skillBindings).some(([k,b])=>k!==key&&b.value===s.id)).map(s=>[s.id,s])).values()].map(s=>['spell:'+s.id,s.name||'Skill'])
  ]:null;
- const layout=JSON.stringify([inspected,binding,options,d.nativeMenu]);
+ const layout=JSON.stringify([inspected,key,binding,options,d.nativeMenu]);
  if(controllerLayout===layout)return;
  controllerLayout=layout;
- $('controllerButton').textContent=document.querySelector('[data-pad="'+inspected+'"] text')?.textContent||'Controller';
+ $('controllerButton').textContent=inspectedCombo?keys[key]:document.querySelector('[data-pad="'+inspected+'"] text')?.textContent||'Controller';
+ $('controllerCombo').hidden=!keys['C4_'+inspected];$('controllerCombo').textContent=inspectedCombo?'Single button':'L1 + '+(keys[sourceFor[inspected]]||'button');
  $('controllerInfo').hidden=false;
  const uiAction=d.nativeMenu&&(inspected===0?'Confirm':inspected===1?'Back':null);
- $('controllerInfo').textContent=uiAction||(binding?.type==='macro'?'Macro row '+(+binding.value+1):binding?.type==='spell'?spellName(binding.value)||'Assigned skill':defaults[inspected]);
+ $('controllerInfo').textContent=uiAction||(binding?.type==='action'?(actionLabels[binding.value]||binding.value):binding?.type==='macro'?'Macro row '+(+binding.value+1):binding?.type==='spell'?spellName(binding.value)||'Assigned skill':defaults[inspected]);
  $('controllerAssign').hidden=!options;
  if(options){
   const choice=$('controllerChoice');
-  choice.replaceChildren(...options.map(([value,label])=>new Option(label,value)));
+  const groups=[['Defaults',options.filter(([v])=>v==='default')],['Actions',options.filter(([v])=>v.startsWith('action:'))],['Macros',options.filter(([v])=>v.startsWith('macro:'))],['Skills',options.filter(([v])=>v.startsWith('spell:'))]];
+  choice.replaceChildren(...groups.filter(([,items])=>items.length).map(([label,items])=>{const group=document.createElement('optgroup');group.label=label;group.replaceChildren(...items.map(([value,text])=>new Option(text,value)));return group}));
   choice.value=binding?binding.type+':'+binding.value:'default';
  }
 }
+$('controllerCombo').onclick=()=>{inspectedCombo=inspectedCombo?'':'C4_'+inspected;controllerLayout='';drawController()};
 $('controllerSave').onclick=()=>{
- const key=sourceFor[inspected];
+ const key=inspectedCombo||sourceFor[inspected];
  if(!key)return;
  const [type,value]=$('controllerChoice').value.split(':');
- const skills={...skillBindings},macros={...macroBindings};
- delete skills[key];delete macros[key];
+ if(type==='default'){$('controllerReset').click();return}
+ const skills={...skillBindings},macros={...macroBindings},actions={...actionBindings};
+ delete skills[key];delete macros[key];delete actions[key];
  if(type==='macro'&&value!=null)macros[key]={type,value};
  if(type==='spell'&&value!=null)skills[key]={type,value};
- save(skills,macros);
+ if(type==='action'&&value!=null)actions[key]={type,value};
+ save(skills,macros,actions);
 };
+$('controllerReset').onclick=()=>{const key=inspectedCombo||sourceFor[inspected];if(!key)return;const skills={...skillBindings},macros={...macroBindings},actions={...actionBindings};delete skills[key];delete macros[key];delete actions[key];const defaultRow=key==='6'?'0':key==='A6'?'1':null;if(defaultRow!=null){const occupied=Object.entries(macros).find(([,b])=>b.value===defaultRow);if(occupied){notice('Default macro is already assigned to '+(keys[occupied[0]]||occupied[0]));return}macros[key]={type:'macro',value:defaultRow}}save(skills,macros,actions)};
+$('resetAllControls').onclick=()=>{$('confirmResetControls').hidden=false};
+$('confirmResetControls').onclick=()=>{save({}, {'6':{type:'macro',value:'0'},'A6':{type:'macro',value:'1'}}, {});$('confirmResetControls').hidden=true};
 $('openGameMenu').onclick=()=>send('nav','start');
 window.showInput=()=>{};
 function updateChoices(preferRowBinding=false){
@@ -393,19 +415,19 @@ function updateChoices(preferRowBinding=false){
   if(available.some(([k])=>k===previous))s.value=previous;
   s.disabled=!available.length;
  };
- rebuild('skillBind',macroBindings);
+ rebuild('skillBind',{...macroBindings,...actionBindings});
  const otherRows=Object.fromEntries(Object.entries(macroBindings).filter(([,b])=>b.value!==String(row)));
- rebuild('macroBind',{...skillBindings,...otherRows});
+ rebuild('macroBind',{...skillBindings,...actionBindings,...otherRows});
  if(preferRowBinding){
   const key=Object.keys(macroBindings).find(k=>macroBindings[k].value===String(row));
   if(key)$('macroBind').value=key;
  }
 }
 updateChoices();
-function save(skills, macros){
- send('bind',{...skills,...macros},()=>{
-  skillBindings=skills;macroBindings=macros;
-  localStorage.setItem('controllerProfiles',JSON.stringify({skills,macros}));
+function save(skills, macros, actions=actionBindings){
+ send('bind',{...actions,...skills,...macros},()=>{
+  skillBindings=skills;macroBindings=macros;actionBindings=actions;
+  localStorage.setItem('controllerProfiles',JSON.stringify({skills,macros,actions}));
   updateChoices(true);drawController();notice('Binding saved');drawSkills(d.slots||[]);drawMacros();
  });
 }
@@ -417,14 +439,14 @@ $('assignSkill').onclick=()=>{
  if(!selectedSkill){notice('Pick a skill first');return}
  const key=$('skillBind').value;
  if(!keys[key]){notice('No free button');return}
- if(macroBindings[key]){notice(keys[key]+' is reserved by a macro');return}
+ if(macroBindings[key]||actionBindings[key]){notice(keys[key]+' is already assigned');return}
  const next=Object.fromEntries(Object.entries(skillBindings).filter(([k,b])=>k===key||b.value!==selectedSkill));
  save({...next,[key]:{type:'spell',value:selectedSkill}},macroBindings);
  pickSkill=false;
 };
 $('bindMacro').onclick=()=>{
  const key=$('macroBind').value;
- if(!keys[key]||skillBindings[key]){notice('No free button');return}
+ if(!keys[key]||skillBindings[key]||actionBindings[key]){notice('No free button');return}
  if(macroBindings[key]&&macroBindings[key].value!==String(row)){notice('Button is already bound to another row');return}
  const next=Object.fromEntries(Object.entries(macroBindings).filter(([,b])=>b.value!==String(row)));
  next[key]={type:'macro',value:String(row)};save(skillBindings,next);
@@ -465,7 +487,7 @@ function drawSkills(slots){
  const ordered=[], used=new Set();
  const displayedKeys=Object.entries(keys);
  for(const [key,label] of displayedKeys){
-  if(macroBindings[key])continue;
+  if(macroBindings[key]||actionBindings[key])continue;
   const binding=skillBindings[key];
   const match=binding?slots.find(x=>x.id===binding.value):slots.find(x=>x.key===key&&!Object.values(skillBindings).some(b=>b.value===x.id));
   if(match?.id){ordered.push({...match,label});used.add(match.id)}
