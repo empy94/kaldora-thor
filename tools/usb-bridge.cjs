@@ -21,10 +21,10 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===31){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===32){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:31,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:32,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -52,7 +52,7 @@ function inputs() {
       ||menuSelectors.map(s=>document.querySelector(s)).find(x=>x?.classList.contains('show')&&visible(x));
   };
   const buttons=p=>{
-    const list=[...p.querySelectorAll('button,[role=button],select,input:not([type=hidden]),textarea,#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot,#inv-trash,#pet-trash,#cash-trash,#mw-rows .skill,#mw-skills .skill')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
+    const list=[...p.querySelectorAll('button,[role=button],select,input:not([type=hidden]),textarea,.skill-card,[draggable=true],[onclick],[tabindex]:not([tabindex="-1"]),#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot,#inv-trash,#pet-trash,#cash-trash,#mw-rows .skill,#mw-skills .skill')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
     return list.sort((a,b)=>Number(a.matches('.close,[data-close]'))-Number(b.matches('.close,[data-close]')));
   };
   let highlighted, dragSource, dragItem, dragMoved=false, anchor, dragStartedAt=0, lastItemTap=null;
@@ -236,14 +236,19 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
         }
         else if(i===9)navigate('start');
         else if(menu&&navButtons[i])navigate(i===0?'downAccept':navButtons[i]);
-        else if(!menu&&i===10)state.combat('target');
-        else if(!menu&&i===11)state.combat('attack');
+        else if(!menu&&(i===10||i===11)){const key=i===10?'L3':'R3';if(state.bind[key])state.performBinding(key);else state.combat(i===10?'target':'attack')}
       }
       if(menu&&previous.has(0)&&!now.has(0))navigate('upAccept');
       previous=now;
     }
     requestAnimationFrame(poll);
   }
+  state.performBinding=key=>{
+    const binding=state.bind[key];
+    if(binding?.type==='macro'){const ok=state.runMacro(binding.value);state.lastMacro={row:binding.value,ok,at:Date.now()};return ok}
+    if(binding?.type==='spell'){const skill=[...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===binding.value&&!x.classList.contains('nomp'));if(!skill)return false;skill.click();return true}
+    return false;
+  };
   state.performPad=index=>{
     const mapping={0:['Digit4','4',true],1:['Digit5','5',true],2:['Digit4','4'],3:['Digit5','5'],5:['Digit6','6'],6:['Digit3','3',true],7:['Digit6','6',true]};
     const [code,key,altKey]=mapping[index];
@@ -568,7 +573,7 @@ function valid(a) {
   const digits=v=>typeof v==='string'&&/^\d{1,9}$/.test(v);
   const row=v=>typeof v==='string'&&/^[0-3]$/.test(v);
   if(a.type==='nativePad')return Number.isInteger(a.value)&&a.value>=0&&a.value<=15;
-  if(a.type==='combo')return typeof a.value==='string'&&/^C4_[0-35-7]$/.test(a.value);
+  if(a.type==='combo')return typeof a.value==='string'&&/^(?:C4_[0-35-7]|L3|R3)$/.test(a.value);
   if(a.type==='effects')return ['0','1','2'].includes(String(a.value));
   if(a.type==='nav')return ['start','back','left','right','up','down','accept','downAccept','upAccept'].includes(a.value);
   if(a.type==='combat')return ['target','attack'].includes(a.value);
@@ -576,7 +581,7 @@ function valid(a) {
     if(!a.value||typeof a.value!=='object')return false;
     const used=new Set();
     return Object.entries(a.value).every(([k,v])=>{
-      if(!/^(?:[4-6]|A[3-6]|C4_[0-3]|C4_[5-7])$/.test(k)||!v)return false;
+      if(!/^(?:[4-6]|A[3-6]|C4_[0-3]|C4_[5-7]|L3|R3)$/.test(k)||!v)return false;
       if(v.type==='spell')return digits(v.value);
       if(v.type!=='macro'||!row(v.value)||used.has(v.value))return false;
       used.add(v.value);return true;

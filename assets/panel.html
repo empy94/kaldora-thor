@@ -201,7 +201,7 @@ button:active{filter:brightness(1.2)}
 <div id="captureDialog" hidden role="dialog" aria-modal="true" aria-label="Record controller button"><div class="captureCard"><strong>Press a controller button</strong><p id="captureMessage">Release the button, then confirm.</p><div class="tools"><button id="captureConfirm" disabled>Confirm</button><button id="captureForce" hidden>Replace binding</button><button id="captureCancel">Cancel</button></div></div></div><output id="feedback" role="status"></output>
 <script>
 const $=id=>document.getElementById(id), tabs=[...document.querySelectorAll('nav button')];
-const keys={'4':'X','5':'Y','6':'R1','A3':'L2','A4':'A','A5':'B','A6':'R2'};
+const keys={'4':'X','5':'Y','6':'R1','A3':'L2','A4':'A','A5':'B','A6':'R2','L3':'L3','R3':'R3'};
 for(const [index,key] of Object.entries({0:'A4',1:'A5',2:'4',3:'5',5:'6',6:'A3',7:'A6'}))keys['C4_'+index]='L1 + '+keys[key];
 const padCodes={BUTTON_X:'2',BUTTON_Y:'3',BUTTON_R1:'4',BUTTON_L2:'5',BUTTON_A:'6',BUTTON_B:'7',BUTTON_R2:'8'};
 let d={},tab=0,mode=false,cursor=-1,group='inv',row=0,macroSlot=0,pending=false,complete,timer,restored=false,lastSelect=null,mapRequested=false;
@@ -257,7 +257,7 @@ window.padKey=k=>{
  const native={DPAD_UP:'up',DPAD_DOWN:'down',DPAD_LEFT:'left',DPAD_RIGHT:'right',DPAD_CENTER:'accept',BUTTON_A:'downAccept',BUTTON_B:'back'};
  if(d.nativeMenu&&native[k]){if(mode)toggleNav();send('nav',native[k]);return}
  if(!d.nativeMenu&&!mode&&localHeld.has(4)&&index!==4&&index!=null&&activeBindings()['C4_'+index]){send('combo','C4_'+index);return}
- if(k==='BUTTON_THUMBL'||k==='BUTTON_THUMBR'){if(!mode&&!d.nativeMenu)send('combat',k==='BUTTON_THUMBL'?'target':'attack');return}
+ if(k==='BUTTON_THUMBL'||k==='BUTTON_THUMBR'){if(!mode&&!d.nativeMenu){const key=k==='BUTTON_THUMBL'?'L3':'R3';send(activeBindings()[key]?'combo':'combat',activeBindings()[key]?key:key==='L3'?'target':'attack')}return}
  if(k==='BUTTON_SELECT'||k==='BUTTON_MODE'){toggleNav();return}
  if(mode){
   if(k==='DPAD_LEFT'||k==='DPAD_RIGHT'){select(tab+(k==='DPAD_RIGHT'?1:-1));focusAt(0)}
@@ -267,7 +267,7 @@ window.padKey=k=>{
  }else if(padCodes[k])send('pad',padCodes[k]);
 };
 const physical={BUTTON_A:0,BUTTON_B:1,BUTTON_X:2,BUTTON_Y:3,BUTTON_L1:4,BUTTON_R1:5,BUTTON_L2:6,BUTTON_R2:7,BUTTON_SELECT:8,BUTTON_START:9,BUTTON_THUMBL:10,BUTTON_THUMBR:11,DPAD_UP:12,DPAD_DOWN:13,DPAD_LEFT:14,DPAD_RIGHT:15,DPAD_CENTER:0};
-const sourceFor={0:'A4',1:'A5',2:'4',3:'5',5:'6',6:'A3',7:'A6'};
+const sourceFor={0:'A4',1:'A5',2:'4',3:'5',5:'6',6:'A3',7:'A6',10:'L3',11:'R3'};
 const defaults=['Interact / skill','Back / skill','Skill','Skill','Reserved','Skill','Skill','Skill','Companion navigation','Game menu','Target next','Basic attack','Menu up','Menu down','Menu left','Menu right'];
 const localHeld=new Set();
 let capture=null;
@@ -337,8 +337,8 @@ window.padRelease=k=>{
 };
 window.resetPad=()=>{localHeld.clear();drawController()};
 function drawGuide(){
- const entries=[['Left stick','Move'],['Right stick','Camera'],['L3','Target next'],['R3','Basic attack'],['Start','Game menu'],['Select','Companion navigation'],['D-pad','Navigate menus'],['A / B','Confirm / back'],...Object.entries(keys).map(([key,label])=>[label,activeBindings()[key]?.type==='macro'?'Macro row '+(+activeBindings()[key].value+1):activeBindings()[key]?.type==='spell'?(d.slots?.find(s=>s.id===activeBindings()[key].value)?.name||'Assigned skill'):'Default action'])];
- if(d.nativePad)entries.splice(2,entries.length-2,...Object.entries(physical).filter(([k])=>k.startsWith('BUTTON_')).map(([k,i])=>[k.replace('BUTTON_',''),d.nativePadMap?.[i]?.label||'Nothing']));
+ const actionFor=(key,fallback)=>{const b=activeBindings()[key];return b?.type==='macro'?'Macro row '+(+b.value+1):b?.type==='spell'?(d.slots?.find(s=>s.id===b.value)?.name||'Assigned skill'):fallback};
+ const entries=[['Left stick','Move'],['Right stick','Camera'],['L3',actionFor('L3','Target next')],['R3',actionFor('R3','Basic attack')],['Start','Game menu'],['Select','Companion navigation'],['D-pad','Navigate menus'],['A',actionFor('A4','Interact / skill')],['B',actionFor('A5','Back / skill')],['X',actionFor('4','Skill')],['Y',actionFor('5','Skill')],['L1','Modifier'],['R1',actionFor('6','Skill')],['L2',actionFor('A3','Skill')],['R2',actionFor('A6','Skill')],...Object.entries(keys).filter(([key])=>key.startsWith('C4_')&&activeBindings()[key]).map(([key,label])=>[label,actionFor(key,'')])];
  const guide=$('controlGuide'), fingerprint=JSON.stringify(entries);
  if(guide.dataset.entries===fingerprint)return;guide.dataset.entries=fingerprint;
  guide.replaceChildren(...entries.map(([key,action])=>{const line=document.createElement('div');line.className='guideRow';const k=document.createElement('span');k.className='guideKey';k.textContent=key;const a=document.createElement('span');a.className='guideAction';a.textContent=action;line.append(k,a);return line}));
@@ -357,7 +357,7 @@ function drawController(){
   ['default','Default action'],
   ...(d.realRows||[]).map((_,i)=>['macro:'+i,'Row '+(i+1)+(d.buffRows?.includes(i)?' · Buff':'')])
    .filter(([value])=>!Object.entries(macroBindings).some(([k,b])=>k!==key&&'macro:'+b.value===value)),
-  ...[...new Map((d.slots||[]).filter(s=>s.id).map(s=>[s.id,s])).values()].map(s=>['spell:'+s.id,s.name||'Skill'])
+  ...[...new Map((d.slots||[]).filter(s=>s.id&&!Object.entries(skillBindings).some(([k,b])=>k!==key&&b.value===s.id)).map(s=>[s.id,s])).values()].map(s=>['spell:'+s.id,s.name||'Skill'])
  ]:null;
  const layout=JSON.stringify([inspected,binding,options,d.nativeMenu]);
  if(controllerLayout===layout)return;
