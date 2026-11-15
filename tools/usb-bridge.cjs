@@ -21,10 +21,10 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===23){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===24){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:23,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:24,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -119,7 +119,9 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
         const isItem=!!item&&!!source.closest('#inv-grid,#pet-grid,#cash-grid');
         const now=Date.now();
         const repeated=isItem&&lastItemTap?.id===item&&lastItemTap.grid===source.parentElement.id&&now-lastItemTap.at<=650;
-        if(isItem&&(repeated||now-dragStartedAt>=700)){
+        if(isItem&&now-dragStartedAt>=700){
+          lastItemTap=null;
+        }else if(repeated){
           lastItemTap=null;
           source.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,cancelable:true,detail:2}));
         }else{

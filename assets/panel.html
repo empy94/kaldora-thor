@@ -80,6 +80,44 @@ nav{gap:6px}nav button{min-height:44px}
 #nativeControls button{min-width:38px}
 #captureDialog{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#050a10d9;padding:20px}#captureDialog[hidden]{display:none}.captureCard{width:min(100%,380px);border:1px solid #8ca0aa;border-radius:10px;padding:18px;background:linear-gradient(#253c49,#101b24);box-shadow:0 10px 35px #000}.captureCard strong{font-size:18px;color:#e2edf3}.captureCard.error{border-color:#d96666;box-shadow:0 0 0 2px #8d3434}.captureCard.error p{color:#ffaaaa}
 body.native-pad #skillPick,body.native-pad #recordSkill,body.native-pad #clearSkill,body.native-pad #recordMacro,body.native-pad #unbindMacro,body.native-pad #controllerAssign{display:none!important}
+
+/* Compact panels use the same blue-grey metal and warm accents as the game. */
+:root{--ink:#e1ebee;--muted:#a9bac0;--rim:#536b73;--gold:#d6b269;--ice:#a4d8e6;--plate:#111b22}
+body{gap:6px;padding:7px;background:#0b1115}
+nav{gap:4px}
+nav button{min-height:44px;border-color:#384e58;border-radius:5px;background:linear-gradient(#293b43,#17262e);font-size:12px}
+nav button[aria-selected=true]{background:linear-gradient(#35505b,#1b343d);box-shadow:inset 0 -2px #a4d8e6;color:#f0fbff}
+nav button img{width:18px;height:18px}
+#vitals{gap:4px}
+#level,.meter{background:#131f26;border-color:#344750;border-radius:4px}
+#level{padding:4px 9px;font-size:12px}
+.meter{padding:4px 7px;font-size:11px}
+.track{height:5px;margin-top:4px}
+section{border-color:#334a53;border-radius:6px;background:linear-gradient(150deg,#17262d,#101a20);padding:10px}
+button{background:linear-gradient(#334851,#1a2a32);border-color:#4a626b;color:var(--ink)}
+button:active{filter:brightness(1.2)}
+.tools,.chips{gap:6px;margin-bottom:7px}
+.tools button,.chips button{min-height:44px;padding:0 12px}
+.chips button{border-color:transparent;background:#1a2a31;color:#c4d4d8}
+.chips button.active{border-color:#8fc8d8;background:#28424b;color:#f2fbfd}
+#sorts:not([hidden]){display:flex;flex-direction:column}
+#skills{flex:1;overflow:auto;min-height:0;padding:7px 3px}
+#skills .row{grid-template-columns:repeat(4,minmax(48px,68px));gap:10px;margin-bottom:8px}
+#skills .slot{min-height:57px}
+#skills .slot .art{width:44px;height:44px;border:1px solid #61717a}
+#sorts>.tools{padding-top:8px;border-top:1px solid #31464d;margin-bottom:0}
+#macroRows{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+#macroRows button{min-width:0;padding:4px;font-size:11px}
+#macroSlots{grid-template-columns:repeat(5,minmax(44px,68px));gap:7px;padding:6px 2px 10px}
+#macroSlots .slot{min-height:55px;border-color:#40575e;background:#0c171c}
+#macroSlots .slot.active{border-color:var(--gold);box-shadow:inset 0 0 0 1px #d6b26966}
+#macroPalette{grid-template-columns:repeat(auto-fill,minmax(48px,1fr));max-height:38%;overflow:auto}
+#chatLog div{border-color:#263940}
+#composer input{min-height:44px}
+#composer button{min-height:44px}
+#map{background:radial-gradient(circle,#233a42,#101a20 75%)}
+#mapImage{border-color:#917d59;outline-color:#334c54}
+#feedback{border-color:#8a754f;border-radius:4px;box-shadow:0 4px 18px #0008}
 </style>
 
 <nav aria-label="Panels">
