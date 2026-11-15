@@ -119,6 +119,25 @@ button:active{filter:brightness(1.2)}
 #mapImage{border-color:#917d59;outline-color:#334c54}
 #feedback{border-color:#8a754f;border-radius:4px;box-shadow:0 4px 18px #0008}
 #vitals[hidden]{display:none}.gearSets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}.gearSets button{min-height:68px;padding:10px;text-align:left}.gearSets button span{display:block;color:var(--muted);font-size:11px;font-weight:400;margin-top:4px}.gearSets button.saved{border-color:#887755}.gearSets button.saved strong{color:var(--gold)}
+
+#sets:not([hidden]){display:flex;flex-direction:column}
+#sets .gearSets{flex:1;min-height:0;grid-template-rows:repeat(2,minmax(0,1fr));gap:10px}
+#sets .gearSets button{height:100%;min-height:70px;padding:16px;border-radius:7px;background:linear-gradient(145deg,#293e47,#16252d)}
+#sets .gearSets button strong{font-size:17px}
+#sets .gearSets button span{font-size:12px;line-height:1.4}
+#sets>.tools{margin:0;padding-top:2px}
+#itemOverlay:not([hidden]){position:absolute;z-index:8;top:59px;bottom:8px;left:9px;right:9px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 30px #0009}
+#itemOverlay .itemHeader{display:flex;justify-content:flex-end;margin-bottom:7px}
+#itemOverlay .itemHeader button{flex:0 0 auto;min-height:38px;padding:0 12px}
+#itemCards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;overflow:auto;min-height:0;align-items:start}
+.itemCard{padding:10px;background:#0d191f;border:1px solid #435962;border-radius:5px;min-width:0}
+.itemCard img{float:right;width:40px;height:40px;object-fit:contain;margin-left:8px;border:1px solid #66777a;border-radius:4px}
+.itemLine{white-space:pre-wrap;overflow-wrap:anywhere;color:#d4dfe1;font-size:12px;line-height:1.4;margin:3px 0}
+.itemLine.head{color:#9fb5bb;text-transform:uppercase;font-size:10px;letter-spacing:.08em}
+.itemLine.name{color:var(--gold);font-size:15px;font-weight:700}
+.itemLine.up,.itemLine.stone-fx{color:#9ed5ad}
+.itemLine.down,.itemLine.req{color:#f0ae9d}
+.itemLine.hint{color:#a9bbc1}
 </style>
 
 <nav aria-label="Panels">
@@ -169,6 +188,7 @@ button:active{filter:brightness(1.2)}
 <div id="nativeControls" class="tools" hidden></div>
 </section>
 <section id="sets" hidden><div id="gearSets" class="gearSets"></div><div class="tools"><button id="editGearSets">Edit sets in game</button></div></section>
+<section id="itemOverlay" hidden aria-label="Item details"><div class="itemHeader"><button id="closeItemDetails">Back to panel</button></div><div id="itemCards"></div></section>
 <section id="menus" hidden><div id="npc" hidden></div><div class="tools"><button id="inventory">Bag</button><button id="pet">Pet</button><button id="bank">Storage</button></div><div id="bagTabs" class="tools"></div><div id="bagGrid"></div><p id="itemInfo"></p><div class="tools"><button id="moveItem" hidden>Move here</button><button id="clearItem" hidden>Cancel move</button></div></section>
 <div id="captureDialog" hidden role="dialog" aria-modal="true" aria-label="Record controller button"><div class="captureCard"><strong>Press a controller button</strong><p id="captureMessage">Release the button, then confirm.</p><div class="tools"><button id="captureConfirm" disabled>Confirm</button><button id="captureForce" hidden>Replace binding</button><button id="captureCancel">Cancel</button></div></div></div><output id="feedback" role="status"></output>
 <script>
@@ -210,7 +230,7 @@ function select(i){
  if(tab===1&&d.online&&!pending){mapRequested=true;send('mapView','')}
  if(tab===2)$('chatLog').scrollTop=$('chatLog').scrollHeight;
 }
-tabs.forEach((b,i)=>b.onclick=()=>select(i));select(0);
+tabs.forEach((b,i)=>b.onclick=()=>{if(d.itemDetails){dismissedItem=d.itemDetails.id;$('itemOverlay').hidden=true}select(i)});select(0);
 function btn(label,fn,on=false){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;if(on)b.classList.add('active');return b}
 function addIcon(node,src){if(src){const i=document.createElement('img');i.src=src;i.alt='';node.append(i)}}
 function controls(){return [...document.querySelectorAll('section:not([hidden]) button:not(:disabled):not([hidden]),section:not([hidden]) select,section:not([hidden]) input')].filter(el=>el.getClientRects().length)}
@@ -525,6 +545,26 @@ function drawBag(){
  }));
  $('moveItem').hidden=itemTarget<0;$('clearItem').hidden=!itemSource;
 }
+let dismissedItem=null, lastItemDetail=null;
+$('closeItemDetails').onclick=()=>{
+ dismissedItem=d.itemDetails?.id||null;
+ $('itemOverlay').hidden=true;
+};
+function drawItemDetails(item){
+ if(item?.id!==lastItemDetail){dismissedItem=null;lastItemDetail=item?.id||null}
+ $('itemOverlay').hidden=!item||dismissedItem===item.id;
+ if(!item){$('itemCards').replaceChildren();return}
+ $('itemCards').replaceChildren(...item.cards.map(card=>{
+  const container=document.createElement('article');container.className='itemCard';
+  if(card.icon){const img=document.createElement('img');img.src=card.icon;img.alt='';container.append(img)}
+  for(const line of card.lines){
+   const el=document.createElement('div');el.className='itemLine';
+   for(const kind of line.kind.split(/\s+/))if(['head','name','req','up','down','hint','gear-buff','stone-fx','combo-head','combo'].includes(kind))el.classList.add(kind);
+   el.textContent=line.text;container.append(el)
+  }
+  return container;
+ }));
+}
 let rendered={};
 function changed(id,value,fn){const key=JSON.stringify(value);if(rendered[id]===key)return;rendered[id]=key;fn(value)}
 window.renderGame=state=>{
@@ -557,6 +597,7 @@ window.renderGame=state=>{
  changed('macro',[d.realRows,d.catalog,d.buffRows],drawMacros);
  changed('bag',d.inventory,drawBag);
  changed('sets',d.sets,drawGearSets);
+ changed('itemDetails',d.itemDetails,drawItemDetails);
  changed('npc',d.npc,npc=>{
   $('npc').hidden=!npc;$('npc').replaceChildren();
   if(!npc)return;

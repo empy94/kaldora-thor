@@ -21,10 +21,10 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===26){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===29){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:26,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:29,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -52,7 +52,7 @@ function inputs() {
       ||menuSelectors.map(s=>document.querySelector(s)).find(x=>x?.classList.contains('show')&&visible(x));
   };
   const buttons=p=>{
-    const list=[...p.querySelectorAll('button,[role=button],#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#inv-trash,#pet-trash,#cash-trash,#mw-rows .skill,#mw-skills .skill')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
+    const list=[...p.querySelectorAll('button,[role=button],#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot,#inv-trash,#pet-trash,#cash-trash,#mw-rows .skill,#mw-skills .skill')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
     return list.sort((a,b)=>Number(a.matches('.close,[data-close]'))-Number(b.matches('.close,[data-close]')));
   };
   let highlighted, dragSource, dragItem, dragMoved=false, anchor, dragStartedAt=0, lastItemTap=null;
@@ -148,6 +148,11 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   }
   state.navigate=navigate;
   state.menu=()=>panel()?.id||"";
+  state.selectedItem=()=>{
+    const current=panel();
+    if(!current||!highlighted||!current.contains(highlighted)||!highlighted.matches('#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot'))return null;
+    return highlighted;
+  };
   const hasNativePad=()=>typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function';
   const configuringPad=()=>!!document.querySelector('#settings.show #set-pad:not([hidden])');
   const rawPads=navigator.getGamepads?.bind(navigator);
@@ -342,9 +347,33 @@ function view(install) {
       return {tid:String(tid),item:tid<0};
     }));
   }
+  let itemDetails=null;
+  try{
+    const slot=window.__thor.selectedItem?.();
+    const itemId=Number(slot?.dataset.item);
+    const item=itemId&&((typeof inv!=='undefined'&&inv.items?.find(x=>x.id===itemId))||
+      (typeof bankItems!=='undefined'&&bankItems.find(x=>x.id===itemId)));
+    if(item&&typeof tipCard==='function'){
+      const equipped=!item.equipped&&item.part&&typeof inv!=='undefined'?inv.items.find(x=>x.equipped&&x.part===item.part):null;
+      const build=(value,heading,comparison,hint)=>{
+        const card=tipCard(value,heading,comparison,hint||'');
+        const selector='.head,.name,.req,.row,.up,.down,.hint,.gear-buff,.stone-fx,.combo-head,.combo';
+        const lines=[...card.querySelectorAll(selector)].filter(el=>!el.parentElement?.closest(selector)).map(el=>({
+          kind:typeof el.className==='string'?el.className:'',
+          text:el.classList.contains('row')||el.classList.contains('name')?[...el.children].map(x=>x.textContent.trim()).filter(Boolean).join(el.classList.contains('row')?'  ':' '):el.textContent.trim()
+        })).filter(line=>line.text);
+        const art=value.id===item.id?slot.querySelector('img.icon'):[...document.querySelectorAll('#doll-slots [data-item]')].find(el=>el.dataset.item===String(value.id))?.querySelector('img.icon');
+        return {lines,icon:art?.src?.startsWith(location.origin+'/')?art.src:''};
+      };
+      itemDetails={id:String(item.id),cards:[
+        ...(equipped?[build(equipped,'Equipped',null,'')]:[]),
+        build(item,equipped?'This item':'',equipped,slot.dataset.hint)
+      ]};
+    }
+  }catch{}
   const sets=typeof gearSets!=='undefined'&&Array.isArray(gearSets)?
     Array.from({length:4},(_,i)=>{const set=gearSets[i];return {name:set?.n||'Set '+(i+1),saved:!!set,gear:!!set?.g,skills:!!set?.b}}):null;
-  return {online:true,sets,pressed:window.__thor.pressed||[],lastPress:window.__thor.lastPress,
+  return {online:true,sets,itemDetails,pressed:window.__thor.pressed||[],lastPress:window.__thor.lastPress,
     nativePad:typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function',
     nativePadMap:typeof pad!=='undefined'&&Array.isArray(pad?.map)?pad.map.map(value=>({value,label:(typeof PAD_ACTIONS!=='undefined'?PAD_ACTIONS.flatMap(group=>group[1]).find(option=>option[0]===value)?.[1]:null)||value||'Nothing'})):[],
     buffRows:typeof bar!=='undefined'&&bar?[bar.bRow??1,bar.bRow2??-1]:[],
