@@ -58,12 +58,12 @@ nav{gap:6px}nav button{min-height:44px}
 #macroPalette{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;padding-bottom:7px}
 #macroPalette[hidden]{display:none}#macroPalette button{min-height:44px;padding:4px;background:#101c25}
 #macroPalette img{width:28px;height:28px;margin:0;object-fit:contain}
-#map{padding:6px;background:#0b141d;position:relative}
-#mapImage{width:100%;height:100%;object-fit:contain;border-radius:4px;background:#080e14}
+#map{padding:18px;background:radial-gradient(circle at center,#243b46,#101b25 70%);position:relative}
+#mapImage{width:100%;height:100%;object-fit:contain;border:2px solid #9a835c;outline:3px solid #263e4c;outline-offset:3px;border-radius:18px;background:#080e14;box-shadow:0 8px 24px #0009}
 #mapHint{position:absolute;inset:0;margin:0;display:grid;place-items:center;text-align:center}
 #mapHint[hidden]{display:none}
 
-.controller{display:grid;grid-template-columns:1.5fr 1fr;align-items:center;gap:12px;margin:6px 0 12px}
+.controlGuide{display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;margin:8px 0 16px}.guideRow{display:flex;align-items:center;gap:10px;min-height:36px;border-bottom:1px solid #2a4251}.guideKey{display:grid;place-items:center;min-width:48px;border:1px solid #607889;border-radius:8px;padding:5px;color:#b9dff4;background:#172c39;font-weight:700}.guideAction{color:#e0e9ee} .controller{display:grid;grid-template-columns:1.5fr 1fr;align-items:center;gap:12px;margin:6px 0 12px}
 .controller svg{width:100%;height:auto;display:block}
 .controller .shell{fill:#182b3a;stroke:#526f82;stroke-width:2}
 .controller .ring{fill:#101b25;stroke:#314f64;stroke-width:1.5}
@@ -93,6 +93,7 @@ nav{gap:6px}nav button{min-height:44px}
 <section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
 <section id="macros" hidden><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button"></select><button id="bindMacro">Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
 <section id="controls" hidden>
+<div id="controlGuide" class="controlGuide"></div>
 <div class="controller">
 <svg viewBox="0 0 360 222" role="img" aria-label="Xbox-style controller showing inputs">
  <path class="shell" d="M87 39c-24 0-42 17-51 44l-24 82c-11 42 24 62 50 44l52-45c10-9 23-13 38-13h56c15 0 28 4 38 13l52 45c26 18 61-2 50-44l-24-82c-9-27-27-44-51-44z"/>
@@ -201,7 +202,14 @@ window.padRelease=k=>{
  if(index!=null){localHeld.delete(index);drawController()}
 };
 window.resetPad=()=>{localHeld.clear();drawController()};
+function drawGuide(){
+ const entries=[['Left stick','Move'],['Right stick','Camera'],['L3','Target next'],['R3','Basic attack'],['Start','Game menu'],['Select','Companion navigation'],['D-pad','Navigate menus'],['A / B','Confirm / back'],...Object.entries(keys).map(([key,label])=>[label,activeBindings()[key]?.type==='macro'?'Macro row '+(+activeBindings()[key].value+1):activeBindings()[key]?.type==='spell'?(d.slots?.find(s=>s.id===activeBindings()[key].value)?.name||'Assigned skill'):'Default action'])];
+ const guide=$('controlGuide'), fingerprint=JSON.stringify(entries);
+ if(guide.dataset.entries===fingerprint)return;guide.dataset.entries=fingerprint;
+ guide.replaceChildren(...entries.map(([key,action])=>{const line=document.createElement('div');line.className='guideRow';const k=document.createElement('span');k.className='guideKey';k.textContent=key;const a=document.createElement('span');a.className='guideAction';a.textContent=action;line.append(k,a);return line}));
+}
 function drawController(){
+ drawGuide();
  if(d.lastPress?.at&&d.lastPress.at!==lastPress){
   lastPress=d.lastPress.at;inspected=d.lastPress.button;
  }
@@ -275,7 +283,8 @@ $('assignSkill').onclick=()=>{
  const key=$('skillBind').value;
  if(!keys[key]){notice('No free button');return}
  if(macroBindings[key]){notice(keys[key]+' is reserved by a macro');return}
- save({...skillBindings,[key]:{type:'spell',value:selectedSkill}},macroBindings);
+ const next=Object.fromEntries(Object.entries(skillBindings).filter(([k,b])=>k===key||b.value!==selectedSkill));
+ save({...next,[key]:{type:'spell',value:selectedSkill}},macroBindings);
  pickSkill=false;
 };
 $('bindMacro').onclick=()=>{
@@ -317,7 +326,7 @@ function drawSkills(slots){
  for(const [key,label] of Object.entries(keys)){
   if(macroBindings[key])continue;
   const binding=skillBindings[key];
-  const match=binding?slots.find(x=>x.id===binding.value):slots.find(x=>x.key===key);
+  const match=binding?slots.find(x=>x.id===binding.value):slots.find(x=>x.key===key&&!Object.values(skillBindings).some(b=>b.value===x.id));
   if(match?.id){ordered.push({...match,label});used.add(match.id)}
  }
  for(const x of slots)if(x.id&&!used.has(x.id)){ordered.push({...x,label:''});used.add(x.id)}
@@ -328,7 +337,7 @@ function drawSkills(slots){
    const line=document.createElement('div');line.className='row';
    for(const x of ordered.slice(i,i+4)){
     const b=btn('',()=>{
-     if(pickSkill){selectedSkill=x.id;drawSkills(d.slots||[]);notice('Choose a controller button, then Bind')}
+     if(pickSkill){selectedSkill=x.id;const assigned=Object.keys(skillBindings).find(k=>skillBindings[k].value===x.id);if(assigned)$('skillBind').value=assigned;drawSkills(d.slots||[]);notice(assigned?'Current binding selected':'Choose a controller button, then Bind')}
      else send('spell',x.id,()=>{b.classList.add('castFlash');setTimeout(()=>b.classList.remove('castFlash'),230)});
     });
     b.className='slot';
