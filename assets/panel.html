@@ -184,7 +184,6 @@ function toggleNav(){
 window.padKey=k=>{
  const index=physical[k];
  if(index!=null){localHeld.add(index);inspected=index;drawController();if(capture){capturePress(index);return}}
- if(d.nativePad&&!d.nativeMenu&&!mode&&index!=null){send('nativePad',index);return}
  if(k==='BUTTON_START'){if(mode)toggleNav();select(4);send('nav','start');return}
  const native={DPAD_UP:'up',DPAD_DOWN:'down',DPAD_LEFT:'left',DPAD_RIGHT:'right',DPAD_CENTER:'accept',BUTTON_A:'downAccept',BUTTON_B:'back'};
  if(d.nativeMenu&&native[k]){if(mode)toggleNav();send('nav',native[k]);return}
@@ -298,7 +297,7 @@ function drawController(){
  $('controllerInfo').hidden=false;
  const uiAction=d.nativeMenu&&(inspected===0?'Confirm':inspected===1?'Back':null);
  $('controllerInfo').textContent=uiAction||(binding?.type==='macro'?'Macro row '+(+binding.value+1):binding?.type==='spell'?spellName(binding.value)||'Assigned skill':defaults[inspected]);
- $('controllerAssign').hidden=!options||!!d.nativePad;
+ $('controllerAssign').hidden=!options;
  if(options){
   const choice=$('controllerChoice');
   choice.replaceChildren(...options.map(([value,label])=>new Option(label,value)));
@@ -395,16 +394,11 @@ $('composer').onsubmit=e=>{
 let skillLayout='', skillNodes=[], skillCategory='All';
 function drawSkills(slots){
  const ordered=[], used=new Set();
- const nativeNames=['A','B','X','Y','L1','R1','L2','R2','Select','Start','L3','R3','↑','↓','←','→'];
- const nativeSlots=(d.nativePadMap||[]).flatMap((entry,i)=>{
-  const match=/^k:Digit([0-9])(?::([as]))?$/.exec(entry.value||'');
-  return match?[[((match[2]||'').toUpperCase())+match[1],nativeNames[i]]]:[];
- });
- const displayedKeys=d.nativePad?nativeSlots:Object.entries(keys);
+ const displayedKeys=Object.entries(keys);
  for(const [key,label] of displayedKeys){
-  if(!d.nativePad&&macroBindings[key])continue;
-  const binding=d.nativePad?null:skillBindings[key];
-  const match=binding?slots.find(x=>x.id===binding.value):slots.find(x=>x.key===key&&(d.nativePad||!Object.values(skillBindings).some(b=>b.value===x.id)));
+  if(macroBindings[key])continue;
+  const binding=skillBindings[key];
+  const match=binding?slots.find(x=>x.id===binding.value):slots.find(x=>x.key===key&&!Object.values(skillBindings).some(b=>b.value===x.id));
   if(match?.id){ordered.push({...match,label});used.add(match.id)}
  }
  for(const x of slots)if(x.id&&!used.has(x.id)){ordered.push({...x,label:''});used.add(x.id)}
@@ -483,8 +477,8 @@ let rendered={};
 function changed(id,value,fn){const key=JSON.stringify(value);if(rendered[id]===key)return;rendered[id]=key;fn(value)}
 window.renderGame=state=>{
  d=state;
- document.body.classList.toggle('native-pad',!!d.nativePad);
- document.querySelectorAll('.nativeHint').forEach(el=>el.hidden=!d.nativePad);
+ document.body.classList.remove('native-pad');
+ document.querySelectorAll('.nativeHint').forEach(el=>el.hidden=true);
  drawController();
  changed('nativeControls',d.nativeMenu||'',menu=>{
   if(menu&&mode)toggleNav();

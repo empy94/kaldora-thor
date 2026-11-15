@@ -8,9 +8,9 @@ An independent Android companion for playing Kaldora on the AYN Thor. The game r
 
 ## Controller
 
-When Kaldora exposes its native controller settings, gameplay buttons use the assignments configured in **Settings → Controller**. The companion displays those assignments and keeps its own previous profiles locally for older game versions. Its menu navigation remains available while a game window is open. Skills and macro rows on the second screen remain touch-accessible.
+The companion's saved skill and macro bindings take priority over the game's controller assignments. Start opens or closes the game menu. The D-pad, A and B navigate supported windows and dialogs. L3 selects the next target and R3 performs the basic attack. The lower panel can record bindings and L1 combinations.
 
-A buff row uses the game's native buffs action when available, including the game's hero-buff selection. The Map panel displays the map supplied by Kaldora. The game may require installation as a standalone web app before it allows entry. Compatibility of that standalone app with the USB bridge must be verified on the device.
+A buff row uses the game's native buffs action when available, including the game's hero-buff selection. The Map panel displays the map supplied by Kaldora. The game may require installation as a standalone web app before it allows entry.
 
 The APK uses English labels. The PC and USB debugging are required for live game data and actions.
 

@@ -21,10 +21,10 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===18){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===22){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:18,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:22,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -156,9 +156,9 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       const pads=rawPads();
       if(!active())return pads;
       const menu=!!panel();
-      if(hasNativePad()&&(!menu||configuringPad()))return pads;
+      if(configuringPad())return pads;
       return Array.from(pads,pad=>pad&&new Proxy(pad,{get(target,prop){
-        if(prop==='buttons')return Array.from(target.buttons,(button,i)=>(menu?blocked.has(i):([4,9,10,11,12,13,14,15].includes(i)||(target.buttons[4]?.pressed&&!!state.bind['C4_'+i])))?{pressed:false,touched:false,value:0}:button);
+        if(prop==='buttons')return Array.from(target.buttons,(button,i)=>(menu?blocked.has(i):((hasNativePad()?[0,1,2,3,4,5,6,7,9,10,11,12,13,14,15]:[4,9,10,11,12,13,14,15]).includes(i)||(target.buttons[4]?.pressed&&!!state.bind['C4_'+i])))?{pressed:false,touched:false,value:0}:button);
         if(prop==='axes'&&!target.mapping&&target.axes.length>=8)return Array.from(target.axes,(axis,i)=>i===6||i===7?0:axis);
         const value=Reflect.get(target,prop,target);
         return typeof value==='function'?value.bind(target):value;
@@ -168,7 +168,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     function poll(){
       if(window.__thor!==state)return;
       requestAnimationFrame(poll);
-      if(!active()){previous.clear();highlight(undefined);state.pressed=[];return}
+      if(!active()){previous.clear();state.pressed=[];return}
       const menu=panel();
       if(configuringPad()){previous.clear();state.pressed=[];return}
       if(menu&&!buttons(menu).includes(highlighted)){
@@ -187,21 +187,39 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       for(const i of now){
         if(previous.has(i))continue;
         state.lastPress={button:i,at:Date.now()};
-        if(!hasNativePad()&&!menu&&i!==4&&now.has(4)&&state.bind['C4_'+i]){
+        if(!menu&&i!==4&&now.has(4)&&state.bind['C4_'+i]){
           const binding=state.bind['C4_'+i];
           if(binding.type==='macro')state.lastMacro={row:binding.value,ok:state.runMacro(binding.value),at:Date.now()};
           else [...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===binding.value&&!x.classList.contains('nomp'))?.click();
         }
-        else if(i===9&&(!hasNativePad()||menu))navigate('start');
+        else if(!menu&&hasNativePad()&&[0,1,2,3,5,6,7].includes(i)){
+          state.performPad(i);
+        }
+        else if(i===9)navigate('start');
         else if(menu&&navButtons[i])navigate(i===0?'downAccept':navButtons[i]);
-        else if(!hasNativePad()&&!menu&&i===10)state.combat('target');
-        else if(!hasNativePad()&&!menu&&i===11)state.combat('attack');
+        else if(!menu&&i===10)state.combat('target');
+        else if(!menu&&i===11)state.combat('attack');
       }
       if(menu&&previous.has(0)&&!now.has(0))navigate('upAccept');
       previous=now;
     }
     requestAnimationFrame(poll);
   }
+  state.performPad=index=>{
+    const mapping={0:['Digit4','4',true],1:['Digit5','5',true],2:['Digit4','4'],3:['Digit5','5'],5:['Digit6','6'],6:['Digit3','3',true],7:['Digit6','6',true]};
+    const [code,key,altKey]=mapping[index];
+    const binding=state.bind[(altKey?'A':'')+key];
+    if(binding?.type==='macro'){
+      const ok=state.runMacro(binding.value);state.lastMacro={row:binding.value,ok,at:Date.now()};return ok;
+    }
+    if(binding?.type==='spell'){
+      const skill=[...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===binding.value&&!x.classList.contains('nomp'));
+      if(!skill)return false;skill.click();return true;
+    }
+    if(index===0&&typeof Module!=='undefined'&&Module.ccall('viewer_interact','number',[],[]))return true;
+    for(const type of ['keydown','keyup'])window.dispatchEvent(new KeyboardEvent(type,{code,key,altKey:!!altKey,bubbles:true,cancelable:true}));
+    return true;
+  };
   state.combat=type=>{
     const x=document.getElementById(type==='target'?'t-target':'t-attack');
     if(!x)return false;
@@ -346,6 +364,11 @@ function action(a) {
       const ok=window.__thor.runMacro(binding.value);
       window.__thor.lastMacro={row:binding.value,ok,at:Date.now()};
       return ok;
+    }
+    if(binding?.type==='spell'){
+      const skill=[...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===binding.value&&!x.classList.contains('nomp'));
+      if(!skill)return false;
+      skill.click();return true;
     }
     if(a.value==='1')return false;
     if(a.value==='6'&&!window.__thor?.bind.A4&&typeof Module!=='undefined'&&Module.ccall('viewer_interact','number',[],[]))return true;
