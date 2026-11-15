@@ -78,6 +78,7 @@ nav{gap:6px}nav button{min-height:44px}
 #controllerAssign select{width:100%;min-width:0;min-height:42px;padding:6px;border:1px solid #496578;border-radius:5px;background:#101b25;color:#e2edf7;font:inherit}
 #controllerAssign[hidden],#nativeControls[hidden]{display:none}
 #nativeControls button{min-width:38px}
+#captureDialog{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#050a10d9;padding:20px}#captureDialog[hidden]{display:none}.captureCard{width:min(100%,380px);border:1px solid #8ca0aa;border-radius:10px;padding:18px;background:linear-gradient(#253c49,#101b24);box-shadow:0 10px 35px #000}.captureCard strong{font-size:18px;color:#e2edf3}.captureCard.error{border-color:#d96666;box-shadow:0 0 0 2px #8d3434}.captureCard.error p{color:#ffaaaa}
 </style>
 
 <nav aria-label="Panels">
@@ -88,10 +89,10 @@ nav{gap:6px}nav button{min-height:44px}
 <button data-tab="controls"><img src="settings.webp" alt="">Controls</button>
 </nav>
 <div id="vitals"><div id="level">Level —</div><div class="meter"><b id="hp">HP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="mp">MP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="xp">EXP —</b><div class="track"><div class="fill"></div></div></div></div>
-<section id="sorts"><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button"></select><button id="assignSkill">Bind</button><button id="clearSkill">Unbind</button></div></section>
+<section id="sorts"><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill">Bind</button><button id="clearSkill">Unbind</button></div></section>
 <section id="map" hidden><p id="mapHint">Waiting for the game map…</p><img id="mapImage" alt="Kaldora map" hidden></section>
 <section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
-<section id="macros" hidden><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button"></select><button id="bindMacro">Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
+<section id="macros" hidden><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro">Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
 <section id="controls" hidden>
 <div id="controlGuide" class="controlGuide"></div>
 <div class="controller">
@@ -127,7 +128,7 @@ nav{gap:6px}nav button{min-height:44px}
 <div id="nativeControls" class="tools" hidden></div>
 </section>
 <section id="menus" hidden><div id="npc" hidden></div><div class="tools"><button id="inventory">Bag</button><button id="pet">Pet</button><button id="bank">Storage</button></div><div id="bagTabs" class="tools"></div><div id="bagGrid"></div><p id="itemInfo"></p><div class="tools"><button id="moveItem" hidden>Move here</button><button id="clearItem" hidden>Cancel move</button></div></section>
-<output id="feedback" role="status"></output>
+<div id="captureDialog" hidden role="dialog" aria-modal="true" aria-label="Record controller button"><div class="captureCard"><strong>Press a controller button</strong><p id="captureMessage">Release the button, then confirm.</p><div class="tools"><button id="captureConfirm" disabled>Confirm</button><button id="captureCancel">Cancel</button></div></div></div><output id="feedback" role="status"></output>
 <script>
 const $=id=>document.getElementById(id), tabs=[...document.querySelectorAll('nav button')];
 const keys={'4':'X','5':'Y','6':'R1','A3':'L2','A4':'A','A5':'B','A6':'R2'};
@@ -175,14 +176,14 @@ function focusAt(index){
 }
 function toggleNav(){
  mode=!mode;cursor=-1;
- if(mode){notice('Menu controls');focusAt(0)}else{document.activeElement.blur();notice('Game controls')}
+ if(mode){notice('Companion navigation');cursor=-1;tabs[tab].focus({preventScroll:true})}else{document.activeElement.blur();notice('Game controls')}
 }
 window.padKey=k=>{
  const index=physical[k];
- if(index!=null){localHeld.add(index);inspected=index;drawController()}
+ if(index!=null){localHeld.add(index);inspected=index;drawController();if(capture){capturePress(index);return}}
  if(k==='BUTTON_START'){if(mode)toggleNav();select(4);send('nav','start');return}
  const native={DPAD_UP:'up',DPAD_DOWN:'down',DPAD_LEFT:'left',DPAD_RIGHT:'right',DPAD_CENTER:'accept',BUTTON_A:'accept',BUTTON_B:'back'};
- if(d.nativeMenu&&native[k]&&!mode){send('nav',native[k]);return}
+ if(d.nativeMenu&&native[k]){if(mode)toggleNav();send('nav',native[k]);return}
  if(k==='BUTTON_THUMBL'||k==='BUTTON_THUMBR'){if(!mode&&!d.nativeMenu)send('combat',k==='BUTTON_THUMBL'?'target':'attack');return}
  if(k==='BUTTON_SELECT'||k==='BUTTON_MODE'){toggleNav();return}
  if(mode){
@@ -196,10 +197,48 @@ const physical={BUTTON_A:0,BUTTON_B:1,BUTTON_X:2,BUTTON_Y:3,BUTTON_L1:4,BUTTON_R
 const sourceFor={0:'A4',1:'A5',2:'4',3:'5',5:'6',6:'A3',7:'A6'};
 const defaults=['Interact / skill','Back / skill','Skill','Skill','Reserved','Skill','Skill','Skill','Companion navigation','Game menu','Target next','Basic attack','Menu up','Menu down','Menu left','Menu right'];
 const localHeld=new Set();
+let capture=null;
+function beginCapture(kind){
+ if(kind==='skill'&&!selectedSkill){notice('Pick a skill first');return}
+ capture={kind,pressed:new Set(),candidate:new Set(),ready:false};
+ $('captureDialog').hidden=false;$('captureConfirm').disabled=true;
+ $('captureMessage').textContent='Press a button, then release it.';
+ document.querySelector('.captureCard').classList.remove('error');
+}
+function capturePress(index){
+ if(!capture.pressed.size){capture.candidate.clear();document.querySelector('.captureCard').classList.remove('error')}
+ capture.pressed.add(index);capture.candidate.add(index);capture.ready=false;
+ $('captureConfirm').disabled=true;
+}
+function captureRelease(){
+ if(!capture)return;
+ capture.pressed=new Set([...capture.pressed].filter(i=>localHeld.has(i)));
+ if(capture.pressed.size)return;
+ const values=[...capture.candidate],key=sourceFor[values[0]],binding=activeBindings()[key];
+ let error='';
+ if(values.length!==1)error='Button combinations are not supported yet.';
+ else if(!key)error='This button is reserved for game controls.';
+ else if(binding&&(capture.kind==='skill'?(binding.type!=='spell'||binding.value!==selectedSkill):(binding.type!=='macro'||binding.value!==String(row))))error='This button is already assigned to '+(binding.type==='macro'?'macro row '+(+binding.value+1):'a skill')+'.';
+ capture.ready=!error;capture.key=key;
+ document.querySelector('.captureCard').classList.toggle('error',!!error);
+ $('captureMessage').textContent=error||keys[key]+' is available.';
+ $('captureConfirm').disabled=!!error;
+}
+$('recordSkill').onclick=()=>beginCapture('skill');
+$('recordMacro').onclick=()=>beginCapture('macro');
+$('captureCancel').onclick=()=>{capture=null;$('captureDialog').hidden=true};
+$('captureConfirm').onclick=()=>{
+ if(!capture?.ready)return;
+ const {kind,key}=capture;capture=null;$('captureDialog').hidden=true;
+ const select=$(kind==='skill'?'skillBind':'macroBind');
+ select.value=key;
+ $(kind==='skill'?'assignSkill':'bindMacro').click();
+};
+
 let inspected, lastPress, controllerLayout='';
 window.padRelease=k=>{
  const index=physical[k];
- if(index!=null){localHeld.delete(index);drawController()}
+ if(index!=null){localHeld.delete(index);drawController();if(capture)captureRelease()}
 };
 window.resetPad=()=>{localHeld.clear();drawController()};
 function drawGuide(){
@@ -403,7 +442,7 @@ window.renderGame=state=>{
  d=state;
  drawController();
  changed('nativeControls',d.nativeMenu||'',menu=>{
-  if((menu==='menu-win'||menu==='npc-menu')&&tab!==4)select(4);
+  if(menu&&mode)toggleNav();
   $('nativeControls').hidden=!menu;
   $('nativeControls').replaceChildren(...(menu?[['↑','up'],['↓','down'],['←','left'],['→','right'],['A','accept'],['B','back']].map(([label,key])=>btn(label,()=>send('nav',key))):[]));
  });
