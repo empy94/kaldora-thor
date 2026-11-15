@@ -33,7 +33,7 @@ form button{flex:0 0 auto;padding:0 9px}.slot{font-weight:normal}.slot:disabled{
 form{margin:0;flex-wrap:nowrap}
 #macroSlots,#bagGrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-bottom:6px}
 #macroSlots .slot,#bagGrid .slot{min-height:36px;padding:2px}
-#macroSlots img,#bagGrid img{width:27px;height:27px;margin:0}
+#macroSlots img,#bagGrid img{width:38px;height:38px;margin:0}
 .navFocus{outline:2px solid var(--ice)}
 .slot:active,.castFlash{filter:brightness(1.6)}
 #npc{padding:6px;border:1px solid var(--gold);margin-bottom:7px}
@@ -42,7 +42,7 @@ form{margin:0;flex-wrap:nowrap}
 nav{gap:6px}nav button{min-height:44px}
 .tools{gap:8px}.tools button,.tools select{min-height:44px}
 #sorts{display:flex;flex-direction:column}#sorts[hidden]{display:none}
-#skills{padding:4px 2px}.row{grid-template-columns:repeat(4,minmax(44px,58px));justify-content:start;gap:8px;margin-bottom:5px}
+#skills{padding:4px 2px}.row{grid-template-columns:repeat(4,minmax(44px,72px));justify-content:start;gap:8px;margin-bottom:5px}
 #skills .slot{border:0;background:none;min-height:51px;padding:0;box-shadow:none;display:flex;flex-direction:column;justify-content:center;gap:2px}
 #skills .slot:disabled{opacity:1}#skills .slot.empty{opacity:.30}
 #skills .slot.selected .art{outline:2px solid var(--ice);outline-offset:2px}
@@ -53,7 +53,7 @@ nav{gap:6px}nav button{min-height:44px}
 #skills .slot .cooldown[hidden]{display:none}
 #skills .slot small{font-size:10px;font-weight:700;color:var(--ink);min-height:14px}
 #macroSlots,#bagGrid{gap:7px}
-#macroSlots .slot,#bagGrid .slot{min-height:44px;background:#0b1720;border-color:#263b49}
+#macroSlots .slot,#bagGrid .slot{min-height:62px;background:#0b1720;border-color:#263b49}
 #macroSlots .slot.active,#bagGrid .slot.active{border-color:var(--ice)}
 #macroPalette{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;padding-bottom:7px}
 #macroPalette[hidden]{display:none}#macroPalette button{min-height:44px;padding:4px;background:#101c25}
@@ -89,7 +89,7 @@ nav{gap:6px}nav button{min-height:44px}
 <button data-tab="controls"><img src="settings.webp" alt="">Controls</button>
 </nav>
 <div id="vitals"><div id="level">Level —</div><div class="meter"><b id="hp">HP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="mp">MP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="xp">EXP —</b><div class="track"><div class="fill"></div></div></div></div>
-<section id="sorts"><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
+<section id="sorts"><div id="skillCategories" class="chips"></div><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
 <section id="map" hidden><p id="mapHint">Waiting for the game map…</p><img id="mapImage" alt="Kaldora map" hidden></section>
 <section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
 <section id="macros" hidden><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
@@ -128,7 +128,7 @@ nav{gap:6px}nav button{min-height:44px}
 <div id="nativeControls" class="tools" hidden></div>
 </section>
 <section id="menus" hidden><div id="npc" hidden></div><div class="tools"><button id="inventory">Bag</button><button id="pet">Pet</button><button id="bank">Storage</button></div><div id="bagTabs" class="tools"></div><div id="bagGrid"></div><p id="itemInfo"></p><div class="tools"><button id="moveItem" hidden>Move here</button><button id="clearItem" hidden>Cancel move</button></div></section>
-<div id="captureDialog" hidden role="dialog" aria-modal="true" aria-label="Record controller button"><div class="captureCard"><strong>Press a controller button</strong><p id="captureMessage">Release the button, then confirm.</p><div class="tools"><button id="captureConfirm" disabled>Confirm</button><button id="captureCancel">Cancel</button></div></div></div><output id="feedback" role="status"></output>
+<div id="captureDialog" hidden role="dialog" aria-modal="true" aria-label="Record controller button"><div class="captureCard"><strong>Press a controller button</strong><p id="captureMessage">Release the button, then confirm.</p><div class="tools"><button id="captureConfirm" disabled>Confirm</button><button id="captureForce" hidden>Replace binding</button><button id="captureCancel">Cancel</button></div></div></div><output id="feedback" role="status"></output>
 <script>
 const $=id=>document.getElementById(id), tabs=[...document.querySelectorAll('nav button')];
 const keys={'4':'X','5':'Y','6':'R1','A3':'L2','A4':'A','A5':'B','A6':'R2'};
@@ -204,7 +204,7 @@ let capture=null;
 function beginCapture(kind){
  if(kind==='skill'&&!selectedSkill){notice('Pick a skill first');return}
  capture={kind,pressed:new Set(),candidate:new Set(),ready:false};
- $('captureDialog').hidden=false;$('captureConfirm').disabled=true;
+ $('captureDialog').hidden=false;$('captureConfirm').disabled=true;$('captureForce').hidden=true;
  $('captureMessage').textContent='Press a button, then release it.';
  document.querySelector('.captureCard').classList.remove('error');
 }
@@ -223,6 +223,14 @@ function captureRelease(){
  else if(!key)error='This button is reserved for game controls.';
  else if(binding&&(capture.kind==='skill'?(binding.type!=='spell'||binding.value!==selectedSkill):(binding.type!=='macro'||binding.value!==String(row))))error='This button is already assigned to '+(binding.type==='macro'?'macro row '+(+binding.value+1):'a skill')+'.';
  capture.ready=!error;capture.key=key;
+ const conflict=!!binding&&!!error&&!!keys[key]&&error.startsWith('This button');
+ capture.canReplace=conflict;
+ $('captureForce').hidden=!conflict;
+ if(conflict){
+  const detail=binding.type==='macro'?'Macro row '+(+binding.value+1)+' (Macros)':
+    ((d.slots||[]).find(slot=>slot.id===binding.value)?.name||'Skill')+' (Skills)';
+  error=keys[key]+' is assigned to '+detail+'. Replace it or change it in '+(binding.type==='macro'?'Macros':'Skills')+'.';
+ }
  document.querySelector('.captureCard').classList.toggle('error',!!error);
  $('captureMessage').textContent=error||keys[key]+' is available.';
  $('captureConfirm').disabled=!!error;
@@ -230,6 +238,20 @@ function captureRelease(){
 $('recordSkill').onclick=()=>beginCapture('skill');
 $('recordMacro').onclick=()=>beginCapture('macro');
 $('captureCancel').onclick=()=>{capture=null;$('captureDialog').hidden=true};
+$('captureForce').onclick=()=>{
+ if(!capture?.canReplace)return;
+ const {kind,key}=capture;
+ const skills={...skillBindings},macros={...macroBindings};
+ delete skills[key];delete macros[key];
+ if(kind==='skill'){
+  for(const [k,b] of Object.entries(skills))if(b.value===selectedSkill)delete skills[k];
+  skills[key]={type:'spell',value:selectedSkill};pickSkill=false;
+ }else{
+  for(const [k,b] of Object.entries(macros))if(b.value===String(row))delete macros[k];
+  macros[key]={type:'macro',value:String(row)};
+ }
+ capture=null;$('captureDialog').hidden=true;save(skills,macros);
+};
 $('captureConfirm').onclick=()=>{
  if(!capture?.ready)return;
  const {kind,key}=capture;capture=null;$('captureDialog').hidden=true;
@@ -367,7 +389,7 @@ $('composer').onsubmit=e=>{
  send('chat',m,()=>{const target=/^\/w\s+(\S+)\s+\S/i.exec(m);if(target){whisper=target[1];localStorage.setItem('lastWhisper',whisper);showWhisper()}
  if(x.value.trim()===m)x.value=''});
 };
-let skillLayout='', skillNodes=[];
+let skillLayout='', skillNodes=[], skillCategory='All';
 function drawSkills(slots){
  const ordered=[], used=new Set();
  for(const [key,label] of Object.entries(keys)){
@@ -377,12 +399,16 @@ function drawSkills(slots){
   if(match?.id){ordered.push({...match,label});used.add(match.id)}
  }
  for(const x of slots)if(x.id&&!used.has(x.id)){ordered.push({...x,label:''});used.add(x.id)}
- const layout=JSON.stringify(ordered.map(x=>[x.id,x.icon,x.label]));
+ const categories=['All',...new Set(ordered.map(x=>x.group||'Other'))];
+ if(!categories.includes(skillCategory))skillCategory='All';
+ $('skillCategories').replaceChildren(...categories.map(name=>btn(name,()=>{skillCategory=name;drawSkills(d.slots||[])},name===skillCategory)));
+ const shown=skillCategory==='All'?ordered:ordered.filter(x=>(x.group||'Other')===skillCategory);
+ const layout=JSON.stringify(shown.map(x=>[x.id,x.icon,x.label]));
  if(layout!==skillLayout){
   skillLayout=layout;skillNodes=[];$('skills').replaceChildren();
-  for(let i=0;i<ordered.length;i+=4){
+  for(let i=0;i<shown.length;i+=4){
    const line=document.createElement('div');line.className='row';
-   for(const x of ordered.slice(i,i+4)){
+   for(const x of shown.slice(i,i+4)){
     const b=btn('',()=>{
      if(pickSkill){selectedSkill=x.id;const assigned=Object.keys(skillBindings).find(k=>skillBindings[k].value===x.id);if(assigned)$('skillBind').value=assigned;drawSkills(d.slots||[]);notice(assigned?'Current binding selected':'Choose a controller button, then Bind')}
      else send('spell',x.id,()=>{b.classList.add('castFlash');setTimeout(()=>b.classList.remove('castFlash'),230)});
@@ -397,7 +423,7 @@ function drawSkills(slots){
    $('skills').append(line);
   }
  }
- ordered.forEach((x,i)=>{
+ shown.forEach((x,i)=>{
   const {b,cd}=skillNodes[i];
   b.disabled=!pickSkill&&(x.disabled||!!x.cooldown);
   b.classList.toggle('selected',x.id===selectedSkill);
