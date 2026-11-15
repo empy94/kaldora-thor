@@ -21,10 +21,10 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===22){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===23){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:22,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:23,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -55,7 +55,7 @@ function inputs() {
     const list=[...p.querySelectorAll('button,[role=button],#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#inv-trash,#pet-trash,#cash-trash,#mw-rows .skill,#mw-skills .skill')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
     return list.sort((a,b)=>Number(a.matches('.close,[data-close]'))-Number(b.matches('.close,[data-close]')));
   };
-  let highlighted, dragSource, dragItem, dragMoved=false, anchor;
+  let highlighted, dragSource, dragItem, dragMoved=false, anchor, dragStartedAt=0, lastItemTap=null;
   const anchors=new WeakMap();
   function highlight(next){
     if(highlighted===next)return;
@@ -98,7 +98,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     }
     if(command==='downAccept'){
       if(!highlighted.matches('.slot,.skill')){const selected=highlighted;selected.click();if(selected.isConnected&&visible(selected))highlight(selected);return true}
-      dragSource=highlighted;dragItem=highlighted.dataset.item||null;dragMoved=false;
+      dragSource=highlighted;dragItem=highlighted.dataset.item||null;dragMoved=false;dragStartedAt=Date.now();
       dragSource.classList.add('thor-drag');return true;
     }
     if(command==='upAccept'){
@@ -106,6 +106,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       const source=dragSource, target=highlighted, item=dragItem;
       source.classList.remove('thor-drag');dragSource=null;dragItem=null;
       if(dragMoved&&target&&target!==source&&source.isConnected&&target.isConnected){
+        lastItemTap=null;
         const transfer=new DataTransfer();
         if(item)transfer.setData('text/plain',item);
         else source.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:transfer}));
@@ -114,7 +115,18 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
           target.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));
           source.dispatchEvent(new DragEvent('dragend',{bubbles:true,cancelable:true,dataTransfer:transfer}));
         }
-      }else if(!dragMoved&&source.isConnected)source.click();
+      }else if(!dragMoved&&source.isConnected){
+        const isItem=!!item&&!!source.closest('#inv-grid,#pet-grid,#cash-grid');
+        const now=Date.now();
+        const repeated=isItem&&lastItemTap?.id===item&&lastItemTap.grid===source.parentElement.id&&now-lastItemTap.at<=650;
+        if(isItem&&(repeated||now-dragStartedAt>=700)){
+          lastItemTap=null;
+          source.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,cancelable:true,detail:2}));
+        }else{
+          lastItemTap=isItem?{id:item,grid:source.parentElement.id,at:now}:null;
+          source.click();
+        }
+      }
       dragMoved=false;return true;
     }
     if(command==='accept'){highlighted.click();highlight(undefined);return true}
