@@ -161,6 +161,7 @@ button:active{filter:brightness(1.2)}
 <section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
 <section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
 <section id="controls" hidden>
+<div class="tools"><label for="effectsSetting">Effects</label><select id="effectsSetting" aria-label="Effects"><option value="0">Off</option><option value="1">Minimal</option><option value="2">Full</option></select></div>
 <div id="controlGuide" class="controlGuide"></div>
 <div class="controller">
 <svg viewBox="0 0 360 222" role="img" aria-label="Xbox-style controller showing inputs">
@@ -592,8 +593,11 @@ function drawItemDetails(item){
 }
 let rendered={};
 function changed(id,value,fn){const key=JSON.stringify(value);if(rendered[id]===key)return;rendered[id]=key;fn(value)}
+$('effectsSetting').addEventListener('change',e=>send('effects',e.target.value));
 window.renderGame=state=>{
  d=state;
+ if(document.activeElement!==$('effectsSetting')&&d.effects!=null)$('effectsSetting').value=d.effects;
+ $('effectsSetting').disabled=!d.online;
  document.body.classList.remove('native-pad');
  document.querySelectorAll('.nativeHint').forEach(el=>el.hidden=true);
  drawController();

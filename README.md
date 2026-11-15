@@ -14,7 +14,9 @@ The **Sets** panel shows the four sets stored by Kaldora. Tap a saved set to equ
 
 A buff row uses the game's native buffs action when available, including the game's hero-buff selection. The Map panel displays the map supplied by Kaldora. The game may require installation as a standalone web app before it allows entry.
 
-The APK uses English labels. The PC and USB debugging are required for live game data and actions.
+The Controls panel also exposes the game’s Effects setting (Off, Minimal or Full). On touch devices, the bridge restores the saved Effects and buff-effects choices after the game applies its mobile defaults. While a game window is open, use the D-pad to navigate, left/right to adjust a selection or slider, A to activate, and B to close.
+
+The APK uses English labels. The PC and USB debugging are required for live game data and actions, including restoration of graphics settings after a game reload.
 
 ## Build and run
 

@@ -21,10 +21,10 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===30){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===31){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:30,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:31,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -52,7 +52,7 @@ function inputs() {
       ||menuSelectors.map(s=>document.querySelector(s)).find(x=>x?.classList.contains('show')&&visible(x));
   };
   const buttons=p=>{
-    const list=[...p.querySelectorAll('button,[role=button],#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot,#inv-trash,#pet-trash,#cash-trash,#mw-rows .skill,#mw-skills .skill')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
+    const list=[...p.querySelectorAll('button,[role=button],select,input:not([type=hidden]),textarea,#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot,#inv-trash,#pet-trash,#cash-trash,#mw-rows .skill,#mw-skills .skill')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
     return list.sort((a,b)=>Number(a.matches('.close,[data-close]'))-Number(b.matches('.close,[data-close]')));
   };
   let highlighted, dragSource, dragItem, dragMoved=false, anchor, dragStartedAt=0, lastItemTap=null;
@@ -69,7 +69,21 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   }
   const style=document.createElement('style');
   style.textContent='.thor-nav{outline:3px solid #9bdafe!important;outline-offset:2px;box-shadow:0 0 10px #5dbcf2!important}.thor-drag{outline:3px solid #e9bf70!important;outline-offset:2px}';
+  style.textContent+='html.touch .set-row:has(#set-effects),html.touch .set-row:has(#set-bufffx){display:flex!important}';
   document.head.appendChild(style);
+  try {
+    const saved=JSON.parse(localStorage.getItem('archlord.settings')||'{}');
+    if(typeof settings!=='undefined'&&['0','1','2'].includes(String(saved.effects))&&typeof setEffects==='function'){
+      settings.effects=String(saved.effects);setEffects(Number(saved.effects));
+      const el=document.getElementById('set-effects');if(el)el.value=String(saved.effects);
+    }
+    if(typeof settings!=='undefined'&&typeof saved.buffFx==='boolean'){
+      settings.buffFx=saved.buffFx;
+      Module.ccall('viewer_set_buff_effects',null,['number'],[saved.buffFx?1:0]);
+      const el=document.getElementById('set-bufffx');if(el)el.checked=saved.buffFx;
+    }
+  }catch{}
+
   function navigate(command){
     const current=panel();
     if(command==='start'){
@@ -97,6 +111,10 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       if(command!=='accept'&&command!=='downAccept')return true;
     }
     if(command==='downAccept'){
+      if(highlighted.matches('select')){
+        highlighted.selectedIndex=(highlighted.selectedIndex+1)%highlighted.options.length;
+        highlighted.dispatchEvent(new Event('change',{bubbles:true}));return true;
+      }
       if(!highlighted.matches('.slot,.skill')){const selected=highlighted;selected.click();if(selected.isConnected&&visible(selected))highlight(selected);return true}
       dragSource=highlighted;dragItem=highlighted.dataset.item||null;dragMoved=false;dragStartedAt=Date.now();
       dragSource.classList.add('thor-drag');return true;
@@ -133,6 +151,11 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     }
     if(command==='accept'){highlighted.click();highlight(undefined);return true}
     const horizontal=command==='left'||command==='right', sign=command==='left'||command==='up'?-1:1;
+    if(horizontal&&highlighted.matches('select,input[type=range]')){
+      if(highlighted.tagName==='SELECT')highlighted.selectedIndex=Math.max(0,Math.min(highlighted.options.length-1,highlighted.selectedIndex+sign));
+      else highlighted.value=String(Math.max(Number(highlighted.min||0),Math.min(Number(highlighted.max||100),Number(highlighted.value)+sign*Number(highlighted.step||1))));
+      highlighted.dispatchEvent(new Event('input',{bubbles:true}));highlighted.dispatchEvent(new Event('change',{bubbles:true}));return true;
+    }
     const center=x=>{const r=x.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]};
     const [x,y]=center(highlighted);
     let best=null,score=Infinity;
@@ -154,7 +177,6 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     return highlighted;
   };
   const hasNativePad=()=>typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function';
-  const configuringPad=()=>!!document.querySelector('#settings.show #set-pad:not([hidden])');
   const rawPads=navigator.getGamepads?.bind(navigator);
   const navButtons={0:'accept',1:'back',9:'start',12:'up',13:'down',14:'left',15:'right'};
   const watched=[...Object.keys(navButtons).map(Number),4,5,6,7,8,10,11,2,3];
@@ -175,7 +197,6 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       const pads=rawPads();
       if(!active())return pads;
       const menu=!!panel();
-      if(configuringPad())return pads;
       return Array.from(pads,pad=>pad&&new Proxy(pad,{get(target,prop){
         if(prop==='buttons')return Array.from(target.buttons,(button,i)=>(menu?blocked.has(i):((hasNativePad()?[0,1,2,3,4,5,6,7,9,10,11,12,13,14,15]:[4,9,10,11,12,13,14,15]).includes(i)||(target.buttons[4]?.pressed&&!!state.bind['C4_'+i])))?{pressed:false,touched:false,value:0}:button);
         if(prop==='axes'&&!target.mapping&&target.axes.length>=8)return Array.from(target.axes,(axis,i)=>i===6||i===7?0:axis);
@@ -189,7 +210,6 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       requestAnimationFrame(poll);
       if(!active()){previous.clear();state.pressed=[];return}
       const menu=panel();
-      if(configuringPad()){previous.clear();state.pressed=[];return}
       if(menu&&!buttons(menu).includes(highlighted)){
         const list=buttons(menu), saved=anchors.get(menu), restored=saved&&(saved.id?document.getElementById(saved.id):document.getElementById(saved.parent)?.children[saved.index]);
         highlight(list.includes(restored)?restored:list[0]);
@@ -383,7 +403,7 @@ function view(install) {
   }catch{}
   const sets=typeof gearSets!=='undefined'&&Array.isArray(gearSets)?
     Array.from({length:4},(_,i)=>{const set=gearSets[i];return {name:set?.n||'Set '+(i+1),saved:!!set,gear:!!set?.g,skills:!!set?.b}}):null;
-  return {online:true,sets,itemDetails,pressed:window.__thor.pressed||[],lastPress:window.__thor.lastPress,
+  return {online:true,effects:typeof settings!=='undefined'?String(settings.effects):null,sets,itemDetails,pressed:window.__thor.pressed||[],lastPress:window.__thor.lastPress,
     nativePad:typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function',
     nativePadMap:typeof pad!=='undefined'&&Array.isArray(pad?.map)?pad.map.map(value=>({value,label:(typeof PAD_ACTIONS!=='undefined'?PAD_ACTIONS.flatMap(group=>group[1]).find(option=>option[0]===value)?.[1]:null)||value||'Nothing'})):[],
     buffRows:typeof bar!=='undefined'&&bar?[bar.bRow??1,bar.bRow2??-1]:[],
@@ -421,6 +441,10 @@ function action(a) {
       return true;
     }
     return !mapping;
+  }
+  if(a.type==='effects'){
+    const el=q('#set-effects');if(!el||!['0','1','2'].includes(String(a.value)))return false;
+    el.value=String(a.value);el.dispatchEvent(new Event('change',{bubbles:true}));return true;
   }
   if(a.type==='nav')return window.__thor?.navigate(a.value)||false;
   if(a.type==='combat')return window.__thor?.combat(a.value)||false;
@@ -545,6 +569,7 @@ function valid(a) {
   const row=v=>typeof v==='string'&&/^[0-3]$/.test(v);
   if(a.type==='nativePad')return Number.isInteger(a.value)&&a.value>=0&&a.value<=15;
   if(a.type==='combo')return typeof a.value==='string'&&/^C4_[0-35-7]$/.test(a.value);
+  if(a.type==='effects')return ['0','1','2'].includes(String(a.value));
   if(a.type==='nav')return ['start','back','left','right','up','down','accept','downAccept','upAccept'].includes(a.value);
   if(a.type==='combat')return ['target','attack'].includes(a.value);
   if(a.type==='bind'){
