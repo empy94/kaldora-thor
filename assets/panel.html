@@ -132,6 +132,7 @@ nav{gap:6px}nav button{min-height:44px}
 <script>
 const $=id=>document.getElementById(id), tabs=[...document.querySelectorAll('nav button')];
 const keys={'4':'X','5':'Y','6':'R1','A3':'L2','A4':'A','A5':'B','A6':'R2'};
+for(const [index,key] of Object.entries({0:'A4',1:'A5',2:'4',3:'5',5:'6',6:'A3',7:'A6'}))keys['C4_'+index]='L1 + '+keys[key];
 const padCodes={BUTTON_X:'2',BUTTON_Y:'3',BUTTON_R1:'4',BUTTON_L2:'5',BUTTON_A:'6',BUTTON_B:'7',BUTTON_R2:'8'};
 let d={},tab=0,mode=false,cursor=-1,group='inv',row=0,macroSlot=0,pending=false,complete,timer,restored=false,lastSelect=null,mapRequested=false;
 let skillBindings={},macroBindings={},whisper='', selectedSkill='', pickSkill=false, pickMacro=false;
@@ -184,6 +185,7 @@ window.padKey=k=>{
  if(k==='BUTTON_START'){if(mode)toggleNav();select(4);send('nav','start');return}
  const native={DPAD_UP:'up',DPAD_DOWN:'down',DPAD_LEFT:'left',DPAD_RIGHT:'right',DPAD_CENTER:'accept',BUTTON_A:'accept',BUTTON_B:'back'};
  if(d.nativeMenu&&native[k]){if(mode)toggleNav();send('nav',native[k]);return}
+ if(!d.nativeMenu&&!mode&&localHeld.has(4)&&index!==4&&index!=null&&activeBindings()['C4_'+index]){send('combo','C4_'+index);return}
  if(k==='BUTTON_THUMBL'||k==='BUTTON_THUMBR'){if(!mode&&!d.nativeMenu)send('combat',k==='BUTTON_THUMBL'?'target':'attack');return}
  if(k==='BUTTON_SELECT'||k==='BUTTON_MODE'){toggleNav();return}
  if(mode){
@@ -214,9 +216,9 @@ function captureRelease(){
  if(!capture)return;
  capture.pressed=new Set([...capture.pressed].filter(i=>localHeld.has(i)));
  if(capture.pressed.size)return;
- const values=[...capture.candidate],key=sourceFor[values[0]],binding=activeBindings()[key];
+ const values=[...capture.candidate],other=values.find(i=>i!==4),key=values.length===2&&values.includes(4)?'C4_'+other:sourceFor[values[0]],binding=activeBindings()[key];
  let error='';
- if(values.length!==1)error='Button combinations are not supported yet.';
+ if(values.length>1&&!(values.length===2&&values.includes(4)&&keys[key]))error='Use L1 with one assignable button.';
  else if(!key)error='This button is reserved for game controls.';
  else if(binding&&(capture.kind==='skill'?(binding.type!=='spell'||binding.value!==selectedSkill):(binding.type!=='macro'||binding.value!==String(row))))error='This button is already assigned to '+(binding.type==='macro'?'macro row '+(+binding.value+1):'a skill')+'.';
  capture.ready=!error;capture.key=key;

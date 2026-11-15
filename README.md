@@ -2,7 +2,7 @@
 
 An independent Android companion for playing Kaldora on the AYN Thor. The game runs in Chrome on the upper display. The lower display shows game data and sends player-triggered actions through the local USB test bridge.
 
-![Kaldora gameplay and the Controls panel captured on an AYN Thor](docs/images/thor-live.png)
+![Kaldora gameplay and the Map panel captured on an AYN Thor](docs/images/thor-live.png)
 
 *Both displays were captured on a physical AYN Thor running Kaldora Thor 0.7. The console frame comes from the supplied reference.*
 
@@ -17,7 +17,7 @@ An independent Android companion for playing Kaldora on the AYN Thor. The game r
 | **L1** | Reserved. |
 | **Select** | Toggle navigation of the lower panel. |
 
-**Controls** shows the button being held and its current action. Press a configurable button, choose a skill or an available macro row, then select **Save binding**. **Skills** uses the game’s icons and cooldowns. **Macros** keeps the native rows and editable slots. Rows configured as buffs in Kaldora send the native buff command and need no enemy target. Each button and macro row can have one assignment at a time.
+**Controls** shows the button being held and its current action. Press a configurable button, choose a skill or an available macro row, then select **Save binding**. Skills and macro rows also offer button recording, including L1 combined with an assignable button. **Skills** uses the game’s icons and cooldowns. **Macros** keeps the native rows and editable slots. Rows configured as buffs in Kaldora send the native buff command and need no enemy target. Each button and macro row can have one assignment at a time.
 
 The lower Inventory tab is hidden for this version. Chat keeps its composer visible, and Map follows the character. Chrome requests fullscreen when focused gameplay is ready and the USB bridge is running. The APK uses English labels. The PC and USB debugging are required for live game data and actions.
 

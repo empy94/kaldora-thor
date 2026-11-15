@@ -21,9 +21,9 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===10){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===11){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
-  const state=window.__thor={version:10,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:11,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -108,7 +108,7 @@ function inputs() {
       if(!active())return pads;
       const menu=!!panel();
       return Array.from(pads,pad=>pad&&new Proxy(pad,{get(target,prop){
-        if(prop==='buttons')return Array.from(target.buttons,(button,i)=>(menu?blocked.has(i):[4,9,10,11].includes(i))?{pressed:false,touched:false,value:0}:button);
+        if(prop==='buttons')return Array.from(target.buttons,(button,i)=>(menu?blocked.has(i):([4,9,10,11].includes(i)||(target.buttons[4]?.pressed&&!!state.bind['C4_'+i])))?{pressed:false,touched:false,value:0}:button);
         const value=Reflect.get(target,prop,target);
         return typeof value==='function'?value.bind(target):value;
       }}));
@@ -132,7 +132,12 @@ function inputs() {
       for(const i of now){
         if(previous.has(i))continue;
         state.lastPress={button:i,at:Date.now()};
-        if(i===9)navigate('start');
+        if(!menu&&i!==4&&now.has(4)&&state.bind['C4_'+i]){
+          const binding=state.bind['C4_'+i];
+          if(binding.type==='macro')state.lastMacro={row:binding.value,ok:state.runMacro(binding.value),at:Date.now()};
+          else [...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===binding.value&&!x.classList.contains('nomp'))?.click();
+        }
+        else if(i===9)navigate('start');
         else if(menu&&navButtons[i])navigate(navButtons[i]);
         else if(!menu&&i===10)state.combat('target');
         else if(!menu&&i===11)state.combat('attack');
@@ -252,6 +257,13 @@ function action(a) {
   if(!q('#hud.show'))return false;
   if(a.type==='nav')return window.__thor?.navigate(a.value)||false;
   if(a.type==='combat')return window.__thor?.combat(a.value)||false;
+  if(a.type==='combo'){
+    const b=window.__thor?.bind[a.value];
+    if(!b||window.__thor.menu())return false;
+    if(b.type==='macro')return window.__thor.runMacro(b.value);
+    const skill=[...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===b.value&&!x.classList.contains('nomp'));
+    if(!skill)return false;skill.click();return true;
+  }
   if(a.type==='move'){window.__thor?.move(a.value);return !!window.__thor}
   if(a.type==='pad'){
     const keys={1:['Digit3','3'],2:['Digit4','4'],3:['Digit5','5'],4:['Digit6','6'],5:['Digit3','3',true],6:['Digit4','4',true],7:['Digit5','5',true],8:['Digit6','6',true]};
@@ -345,13 +357,14 @@ function valid(a) {
   if(!a||typeof a!=='object')return false;
   const digits=v=>typeof v==='string'&&/^\d{1,9}$/.test(v);
   const row=v=>typeof v==='string'&&/^[0-3]$/.test(v);
+  if(a.type==='combo')return typeof a.value==='string'&&/^C4_[0-35-7]$/.test(a.value);
   if(a.type==='nav')return ['start','back','left','right','up','down','accept'].includes(a.value);
   if(a.type==='combat')return ['target','attack'].includes(a.value);
   if(a.type==='bind'){
     if(!a.value||typeof a.value!=='object')return false;
     const used=new Set();
     return Object.entries(a.value).every(([k,v])=>{
-      if(!/^(?:[4-6]|A[3-6])$/.test(k)||!v)return false;
+      if(!/^(?:[4-6]|A[3-6]|C4_[0-3]|C4_[5-7])$/.test(k)||!v)return false;
       if(v.type==='spell')return digits(v.value);
       if(v.type!=='macro'||!row(v.value)||used.has(v.value))return false;
       used.add(v.value);return true;
