@@ -21,14 +21,15 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===15){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===17){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:15,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:17,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
     if(typeof BAR_COLS==='undefined')return false;
+    if(row===(bar.bRow??1)&&typeof runBuffs==='function'){runBuffs();return true}
     const skills=BAR_COLS.map(col=>slotSkill(10*row+col)).filter(Boolean);
     if(!skills.length)return false;
     if(row===(bar.bRow??1)||row===(bar.bRow2??-1)){
@@ -133,6 +134,8 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   }
   state.navigate=navigate;
   state.menu=()=>panel()?.id||"";
+  const hasNativePad=()=>typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function';
+  const configuringPad=()=>!!document.querySelector('#settings.show #set-pad:not([hidden])');
   const rawPads=navigator.getGamepads?.bind(navigator);
   const navButtons={0:'accept',1:'back',9:'start',12:'up',13:'down',14:'left',15:'right'};
   const watched=[...Object.keys(navButtons).map(Number),4,5,6,7,8,10,11,2,3];
@@ -153,6 +156,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       const pads=rawPads();
       if(!active())return pads;
       const menu=!!panel();
+      if(hasNativePad()&&(!menu||configuringPad()))return pads;
       return Array.from(pads,pad=>pad&&new Proxy(pad,{get(target,prop){
         if(prop==='buttons')return Array.from(target.buttons,(button,i)=>(menu?blocked.has(i):([4,9,10,11,12,13,14,15].includes(i)||(target.buttons[4]?.pressed&&!!state.bind['C4_'+i])))?{pressed:false,touched:false,value:0}:button);
         if(prop==='axes'&&!target.mapping&&target.axes.length>=8)return Array.from(target.axes,(axis,i)=>i===6||i===7?0:axis);
@@ -166,6 +170,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       requestAnimationFrame(poll);
       if(!active()){previous.clear();highlight(undefined);state.pressed=[];return}
       const menu=panel();
+      if(configuringPad()){previous.clear();state.pressed=[];return}
       if(menu&&!buttons(menu).includes(highlighted)){
         const list=buttons(menu), saved=anchors.get(menu), restored=saved&&(saved.id?document.getElementById(saved.id):document.getElementById(saved.parent)?.children[saved.index]);
         highlight(list.includes(restored)?restored:list[0]);
@@ -182,15 +187,15 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       for(const i of now){
         if(previous.has(i))continue;
         state.lastPress={button:i,at:Date.now()};
-        if(!menu&&i!==4&&now.has(4)&&state.bind['C4_'+i]){
+        if(!hasNativePad()&&!menu&&i!==4&&now.has(4)&&state.bind['C4_'+i]){
           const binding=state.bind['C4_'+i];
           if(binding.type==='macro')state.lastMacro={row:binding.value,ok:state.runMacro(binding.value),at:Date.now()};
           else [...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===binding.value&&!x.classList.contains('nomp'))?.click();
         }
-        else if(i===9)navigate('start');
+        else if(i===9&&(!hasNativePad()||menu))navigate('start');
         else if(menu&&navButtons[i])navigate(i===0?'downAccept':navButtons[i]);
-        else if(!menu&&i===10)state.combat('target');
-        else if(!menu&&i===11)state.combat('attack');
+        else if(!hasNativePad()&&!menu&&i===10)state.combat('target');
+        else if(!hasNativePad()&&!menu&&i===11)state.combat('attack');
       }
       if(menu&&previous.has(0)&&!now.has(0))navigate('upAccept');
       previous=now;
@@ -229,6 +234,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   setInterval(()=>{if(Date.now()>=state.until&&state.held.size)release()},400);
   function handle(e){
     if(e.isTrusted||e.target!==window||Date.now()>=state.until||!document.querySelector('#hud.show'))return;
+    if(hasNativePad())return;
     const down=e.type==='keydown';
     if(codes[e.code]){
       e.stopImmediatePropagation();
@@ -284,6 +290,8 @@ function view(install) {
     }));
   }
   return {online:true,pressed:window.__thor.pressed||[],lastPress:window.__thor.lastPress,
+    nativePad:typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function',
+    nativePadMap:typeof pad!=='undefined'&&Array.isArray(pad?.map)?pad.map.map(value=>({value,label:(typeof PAD_ACTIONS!=='undefined'?PAD_ACTIONS.flatMap(group=>group[1]).find(option=>option[0]===value)?.[1]:null)||value||'Nothing'})):[],
     buffRows:typeof bar!=='undefined'&&bar?[bar.bRow??1,bar.bRow2??-1]:[],
     fullscreen:!!document.fullscreenElement,nativeMenu:window.__thor.menu(),bindings:window.__thor.bind,lastMacro:window.__thor.lastMacro,
     activeRow:typeof macroRow==='number'?String(macroRow):'',inventory,npc,catalog,realRows,select:window.__thor.select||0,focused:document.hasFocus(),level:txt('#level'),hp:txt('#hp-text'),mp:txt('#mp-text'),xp:txt('#exp-text'),
@@ -306,6 +314,20 @@ function view(install) {
 function action(a) {
   const q=s=>document.querySelector(s);
   if(!q('#hud.show'))return false;
+  if(a.type==='nativePad'){
+    if(typeof pad==='undefined'||!Array.isArray(pad.map)||window.__thor?.menu())return false;
+    const mapping=pad.map[a.value]||'';
+    if(mapping==='macro'){if(typeof toggleMacro==='function')toggleMacro(bar.mRow||0);return true}
+    if(mapping==='buffs'){if(typeof runBuffs==='function')runBuffs();return true}
+    if(mapping==='act'){if(Module.ccall('viewer_interact','number',[],[]))return true;
+      for(const type of ['keydown','keyup'])window.dispatchEvent(new KeyboardEvent(type,{code:'Space',key:' ',bubbles:true,cancelable:true}));return true}
+    if(mapping.startsWith('k:')){
+      const [,code,modifier]=mapping.split(':');
+      for(const type of ['keydown','keyup'])window.dispatchEvent(new KeyboardEvent(type,{code,key:typeof padKeyName==='function'?padKeyName(code):code,shiftKey:modifier==='s',altKey:modifier==='a',bubbles:true,cancelable:true}));
+      return true;
+    }
+    return !mapping;
+  }
   if(a.type==='nav')return window.__thor?.navigate(a.value)||false;
   if(a.type==='combat')return window.__thor?.combat(a.value)||false;
   if(a.type==='combo'){
@@ -408,6 +430,7 @@ function valid(a) {
   if(!a||typeof a!=='object')return false;
   const digits=v=>typeof v==='string'&&/^\d{1,9}$/.test(v);
   const row=v=>typeof v==='string'&&/^[0-3]$/.test(v);
+  if(a.type==='nativePad')return Number.isInteger(a.value)&&a.value>=0&&a.value<=15;
   if(a.type==='combo')return typeof a.value==='string'&&/^C4_[0-35-7]$/.test(a.value);
   if(a.type==='nav')return ['start','back','left','right','up','down','accept','downAccept','upAccept'].includes(a.value);
   if(a.type==='combat')return ['target','attack'].includes(a.value);

@@ -79,6 +79,7 @@ nav{gap:6px}nav button{min-height:44px}
 #controllerAssign[hidden],#nativeControls[hidden]{display:none}
 #nativeControls button{min-width:38px}
 #captureDialog{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:#050a10d9;padding:20px}#captureDialog[hidden]{display:none}.captureCard{width:min(100%,380px);border:1px solid #8ca0aa;border-radius:10px;padding:18px;background:linear-gradient(#253c49,#101b24);box-shadow:0 10px 35px #000}.captureCard strong{font-size:18px;color:#e2edf3}.captureCard.error{border-color:#d96666;box-shadow:0 0 0 2px #8d3434}.captureCard.error p{color:#ffaaaa}
+body.native-pad #skillPick,body.native-pad #recordSkill,body.native-pad #clearSkill,body.native-pad #recordMacro,body.native-pad #unbindMacro,body.native-pad #controllerAssign{display:none!important}
 </style>
 
 <nav aria-label="Panels">
@@ -89,10 +90,10 @@ nav{gap:6px}nav button{min-height:44px}
 <button data-tab="controls"><img src="settings.webp" alt="">Controls</button>
 </nav>
 <div id="vitals"><div id="level">Level —</div><div class="meter"><b id="hp">HP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="mp">MP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="xp">EXP —</b><div class="track"><div class="fill"></div></div></div></div>
-<section id="sorts"><div id="skillCategories" class="chips"></div><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
+<section id="sorts"><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="skillCategories" class="chips"></div><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
 <section id="map" hidden><p id="mapHint">Waiting for the game map…</p><img id="mapImage" alt="Kaldora map" hidden></section>
 <section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
-<section id="macros" hidden><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
+<section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
 <section id="controls" hidden>
 <div id="controlGuide" class="controlGuide"></div>
 <div class="controller">
@@ -183,6 +184,7 @@ function toggleNav(){
 window.padKey=k=>{
  const index=physical[k];
  if(index!=null){localHeld.add(index);inspected=index;drawController();if(capture){capturePress(index);return}}
+ if(d.nativePad&&!d.nativeMenu&&!mode&&index!=null){send('nativePad',index);return}
  if(k==='BUTTON_START'){if(mode)toggleNav();select(4);send('nav','start');return}
  const native={DPAD_UP:'up',DPAD_DOWN:'down',DPAD_LEFT:'left',DPAD_RIGHT:'right',DPAD_CENTER:'accept',BUTTON_A:'downAccept',BUTTON_B:'back'};
  if(d.nativeMenu&&native[k]){if(mode)toggleNav();send('nav',native[k]);return}
@@ -268,6 +270,7 @@ window.padRelease=k=>{
 window.resetPad=()=>{localHeld.clear();drawController()};
 function drawGuide(){
  const entries=[['Left stick','Move'],['Right stick','Camera'],['L3','Target next'],['R3','Basic attack'],['Start','Game menu'],['Select','Companion navigation'],['D-pad','Navigate menus'],['A / B','Confirm / back'],...Object.entries(keys).map(([key,label])=>[label,activeBindings()[key]?.type==='macro'?'Macro row '+(+activeBindings()[key].value+1):activeBindings()[key]?.type==='spell'?(d.slots?.find(s=>s.id===activeBindings()[key].value)?.name||'Assigned skill'):'Default action'])];
+ if(d.nativePad)entries.splice(2,entries.length-2,...Object.entries(physical).filter(([k])=>k.startsWith('BUTTON_')).map(([k,i])=>[k.replace('BUTTON_',''),d.nativePadMap?.[i]?.label||'Nothing']));
  const guide=$('controlGuide'), fingerprint=JSON.stringify(entries);
  if(guide.dataset.entries===fingerprint)return;guide.dataset.entries=fingerprint;
  guide.replaceChildren(...entries.map(([key,action])=>{const line=document.createElement('div');line.className='guideRow';const k=document.createElement('span');k.className='guideKey';k.textContent=key;const a=document.createElement('span');a.className='guideAction';a.textContent=action;line.append(k,a);return line}));
@@ -295,7 +298,7 @@ function drawController(){
  $('controllerInfo').hidden=false;
  const uiAction=d.nativeMenu&&(inspected===0?'Confirm':inspected===1?'Back':null);
  $('controllerInfo').textContent=uiAction||(binding?.type==='macro'?'Macro row '+(+binding.value+1):binding?.type==='spell'?spellName(binding.value)||'Assigned skill':defaults[inspected]);
- $('controllerAssign').hidden=!options;
+ $('controllerAssign').hidden=!options||!!d.nativePad;
  if(options){
   const choice=$('controllerChoice');
   choice.replaceChildren(...options.map(([value,label])=>new Option(label,value)));
@@ -392,10 +395,16 @@ $('composer').onsubmit=e=>{
 let skillLayout='', skillNodes=[], skillCategory='All';
 function drawSkills(slots){
  const ordered=[], used=new Set();
- for(const [key,label] of Object.entries(keys)){
-  if(macroBindings[key])continue;
-  const binding=skillBindings[key];
-  const match=binding?slots.find(x=>x.id===binding.value):slots.find(x=>x.key===key&&!Object.values(skillBindings).some(b=>b.value===x.id));
+ const nativeNames=['A','B','X','Y','L1','R1','L2','R2','Select','Start','L3','R3','↑','↓','←','→'];
+ const nativeSlots=(d.nativePadMap||[]).flatMap((entry,i)=>{
+  const match=/^k:Digit([0-9])(?::([as]))?$/.exec(entry.value||'');
+  return match?[[((match[2]||'').toUpperCase())+match[1],nativeNames[i]]]:[];
+ });
+ const displayedKeys=d.nativePad?nativeSlots:Object.entries(keys);
+ for(const [key,label] of displayedKeys){
+  if(!d.nativePad&&macroBindings[key])continue;
+  const binding=d.nativePad?null:skillBindings[key];
+  const match=binding?slots.find(x=>x.id===binding.value):slots.find(x=>x.key===key&&(d.nativePad||!Object.values(skillBindings).some(b=>b.value===x.id)));
   if(match?.id){ordered.push({...match,label});used.add(match.id)}
  }
  for(const x of slots)if(x.id&&!used.has(x.id)){ordered.push({...x,label:''});used.add(x.id)}
@@ -474,6 +483,8 @@ let rendered={};
 function changed(id,value,fn){const key=JSON.stringify(value);if(rendered[id]===key)return;rendered[id]=key;fn(value)}
 window.renderGame=state=>{
  d=state;
+ document.body.classList.toggle('native-pad',!!d.nativePad);
+ document.querySelectorAll('.nativeHint').forEach(el=>el.hidden=!d.nativePad);
  drawController();
  changed('nativeControls',d.nativeMenu||'',menu=>{
   if(menu&&mode)toggleNav();
@@ -490,7 +501,7 @@ window.renderGame=state=>{
  if(d.online&&lastSelect!==null&&d.select!==lastSelect)toggleNav();
  lastSelect=d.online?d.select:null;
  if(tab===1&&d.online&&!mapRequested&&!d.map&&!pending){mapRequested=true;send('mapView','')}
- changed('skills',d.slots||[],drawSkills);
+ changed('skills',[d.slots,d.nativePadMap,d.nativePad],()=>drawSkills(d.slots||[]));
  changed('map',d.map||'',m=>{$('mapImage').hidden=!m;$('mapHint').hidden=!!m;if(m)$('mapImage').src=m});
  changed('filters',d.filters||[],f=>$('filters').replaceChildren(...f.filter(x=>x.name).map(x=>btn(x.name,()=>send('filter',x.name),x.on))));
  changed('chat',d.chat||[],m=>{

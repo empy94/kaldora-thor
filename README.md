@@ -6,20 +6,13 @@ An independent Android companion for playing Kaldora on the AYN Thor. The game r
 
 *Both displays were captured on a physical AYN Thor running Kaldora Thor 0.7. The console frame comes from the supplied reference.*
 
-## Controls in 0.7
+## Controller
 
-| Control | Action |
-| --- | --- |
-| **L3** | Cycle the target with Kaldora’s native targeting action. |
-| **R3** | Basic attack using Kaldora’s native action. |
-| **Start** | Open or back out of the game menu. |
-| **D-pad, A, B** | Move the highlight, confirm, or go back in supported game menus and NPC dialogs. The Controls panel offers the same actions by touch while a game menu is open. |
-| **L1** | Reserved. |
-| **Select** | Toggle navigation of the lower panel. |
+When Kaldora exposes its native controller settings, gameplay buttons use the assignments configured in **Settings → Controller**. The companion displays those assignments and keeps its own previous profiles locally for older game versions. Its menu navigation remains available while a game window is open. Skills and macro rows on the second screen remain touch-accessible.
 
-**Controls** shows the button being held and its current action. Press a configurable button, choose a skill or an available macro row, then select **Save binding**. Skills and macro rows also offer button recording, including L1 combined with an assignable button. **Skills** uses the game’s icons and cooldowns. **Macros** keeps the native rows and editable slots. Rows configured as buffs in Kaldora send the native buff command and need no enemy target. Each button and macro row can have one assignment at a time.
+A buff row uses the game's native buffs action when available, including the game's hero-buff selection. The Map panel displays the map supplied by Kaldora. The game may require installation as a standalone web app before it allows entry. Compatibility of that standalone app with the USB bridge must be verified on the device.
 
-The lower Inventory tab is hidden for this version. Chat keeps its composer visible, and Map follows the character. Chrome requests fullscreen when focused gameplay is ready and the USB bridge is running. The APK uses English labels. The PC and USB debugging are required for live game data and actions.
+The APK uses English labels. The PC and USB debugging are required for live game data and actions.
 
 ## Build and run
 
