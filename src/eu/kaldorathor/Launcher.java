@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.hardware.display.DisplayManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Browser;
 import android.view.Display;
 import android.widget.Toast;
 
@@ -23,18 +24,19 @@ public final class Launcher extends Activity {
                 startActivity(companion, ActivityOptions.makeBasic()
                     .setLaunchDisplayId(screen.getDisplayId()).toBundle());
             } catch (RuntimeException unavailable) {
-                Toast.makeText(this, "Écran secondaire indisponible", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Secondary display unavailable", Toast.LENGTH_SHORT).show();
             }
             break;
         }
         try {
             Intent browser = new Intent(Intent.ACTION_VIEW, Uri.parse(GAME)).setPackage("com.android.chrome");
+            browser.putExtra(Browser.EXTRA_APPLICATION_ID, getPackageName());
             startActivity(browser, ActivityOptions.makeBasic().setLaunchDisplayId(Display.DEFAULT_DISPLAY).toBundle());
         } catch (RuntimeException unavailable) {
             try {
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(GAME)));
             } catch (RuntimeException noBrowser) {
-                Toast.makeText(this, "Aucun navigateur disponible", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "No browser available", Toast.LENGTH_LONG).show();
             }
         }
         finish();

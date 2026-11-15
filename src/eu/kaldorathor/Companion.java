@@ -19,6 +19,7 @@ public final class Companion extends Activity {
         new java.util.concurrent.atomic.AtomicBoolean();
     private String previousDirection = "[]";
     private long lastMotion;
+    private int previousHatX, previousHatY;
 
     private void sendMotion(String direction) {
         latestDirection.set(direction);
@@ -142,27 +143,45 @@ public final class Companion extends Activity {
         } catch (java.io.IOException ignored) {}
     }
 
-    private void report(String input) {
-        panel.evaluateJavascript("window.showInput?.(" + JSONObject.quote(input) + ")", null);
-    }
-
     @Override public boolean dispatchKeyEvent(KeyEvent event) {
         int source = event.getSource();
         if ((source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD
                 || (source & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD) {
-            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
-                String key = KeyEvent.keyCodeToString(event.getKeyCode()).replace("KEYCODE_", "");
-                report(key);
-                panel.evaluateJavascript("window.padKey?.(" + JSONObject.quote(key) + ")", null);
-            }
+            String key = KeyEvent.keyCodeToString(event.getKeyCode()).replace("KEYCODE_", "");
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) sendPadKey(key);
+            if (event.getAction() == KeyEvent.ACTION_UP) releasePadKey(key);
             if (event.getKeyCode() != KeyEvent.KEYCODE_BACK) return true;
         }
         return super.dispatchKeyEvent(event);
     }
 
+    private void sendPadKey(String key) {
+        panel.evaluateJavascript("window.padKey?.(" + JSONObject.quote(key) + ")", null);
+    }
+
+    private void releasePadKey(String key) {
+        panel.evaluateJavascript("window.padRelease?.(" + JSONObject.quote(key) + ")", null);
+    }
+
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (!hasFocus && panel != null) {
+            previousHatX = previousHatY = 0;
+            panel.evaluateJavascript("window.resetPad?.()", null);
+        }
+    }
+
     @Override public boolean dispatchGenericMotionEvent(MotionEvent event) {
         if (event.isFromSource(InputDevice.SOURCE_JOYSTICK)) {
             long now = SystemClock.uptimeMillis();
+            int hatX = Math.round(event.getAxisValue(MotionEvent.AXIS_HAT_X));
+            int hatY = Math.round(event.getAxisValue(MotionEvent.AXIS_HAT_Y));
+            if (previousHatX != 0 && previousHatX != hatX) releasePadKey(previousHatX < 0 ? "DPAD_LEFT" : "DPAD_RIGHT");
+            if (previousHatY != 0 && previousHatY != hatY) releasePadKey(previousHatY < 0 ? "DPAD_UP" : "DPAD_DOWN");
+            if (hatX != 0 && hatX != previousHatX) sendPadKey(hatX < 0 ? "DPAD_LEFT" : "DPAD_RIGHT");
+            if (hatY != 0 && hatY != previousHatY) sendPadKey(hatY < 0 ? "DPAD_UP" : "DPAD_DOWN");
+            previousHatX = hatX;
+            previousHatY = hatY;
             float x = event.getAxisValue(MotionEvent.AXIS_X);
             float y = event.getAxisValue(MotionEvent.AXIS_Y);
             org.json.JSONArray direction = new org.json.JSONArray();

@@ -8,11 +8,11 @@ async function pages() {
   const all = await (await fetch('http://127.0.0.1:'+port+'/json',{signal:AbortSignal.timeout(800)})).json();
   return all.filter(p=>p.type==='page'&&new URL(p.url).origin===origin);
 }
-function call(page, expression) {
+function call(page, expression, userGesture=false) {
   return new Promise((resolve,reject)=>{
     const ws=new WebSocket(page.webSocketDebuggerUrl);
     const timer=setTimeout(()=>{ws.close();reject(Error('timeout'))},1300);
-    ws.onopen=()=>ws.send(JSON.stringify({id:1,method:'Runtime.evaluate',params:{expression,returnByValue:true}}));
+    ws.onopen=()=>ws.send(JSON.stringify({id:1,method:'Runtime.evaluate',params:{expression,returnByValue:true,userGesture,awaitPromise:true}}));
     ws.onmessage=e=>{
       const msg=JSON.parse(e.data);if(msg.id!==1)return;
       clearTimeout(timer);ws.close();resolve(msg.result?.result?.value);
@@ -21,14 +21,20 @@ function call(page, expression) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===7){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===10){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
-  const state=window.__thor={version:7,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:10,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
+    if(typeof BAR_COLS==='undefined')return false;
+    const skills=BAR_COLS.map(col=>slotSkill(10*row+col)).filter(Boolean);
+    if(!skills.length)return false;
+    if(row===(bar.bRow??1)||row===(bar.bRow2??-1)){
+      Module.ccall('viewer_buff_macro',null,['string'],[skills.map(s=>s.id).join(',')]);
+      return true;
+    }
     if(typeof macroRow!=='undefined'&&macroRow===row){toggleMacro(row);return true}
-    if(typeof BAR_COLS==='undefined'||!BAR_COLS.some(col=>!!slotSkill(10*row+col)))return false;
     toggleMacro(row);
     return typeof macroRow!=='undefined'&&macroRow===row;
   };
@@ -88,7 +94,12 @@ function inputs() {
   state.menu=()=>panel()?.id||"";
   const rawPads=navigator.getGamepads?.bind(navigator);
   const navButtons={0:'accept',1:'back',9:'start',12:'up',13:'down',14:'left',15:'right'};
-  const watched=[...Object.keys(navButtons).map(Number),10,11];
+  const watched=[...Object.keys(navButtons).map(Number),4,5,6,7,8,10,11,2,3];
+  const trustedNav={ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right',Enter:'accept',Escape:'back',Backspace:'back'};
+  window.addEventListener('keydown',e=>{
+    if(!active()||!e.isTrusted||e.repeat||/^(INPUT|SELECT|TEXTAREA)$/.test(e.target?.tagName)||!panel()||!trustedNav[e.key])return;
+    if(navigate(trustedNav[e.key])){e.preventDefault();e.stopImmediatePropagation()}
+  },true);
   const blocked=new Set([...watched,4]);
   function active(){return window.__thor===state&&Date.now()<state.until&&document.hasFocus()&&!!document.querySelector('#hud.show')}
   if(rawPads){
@@ -106,15 +117,21 @@ function inputs() {
     function poll(){
       if(window.__thor!==state)return;
       requestAnimationFrame(poll);
-      if(!active()){previous.clear();highlight(undefined);return}
+      if(!active()){previous.clear();highlight(undefined);state.pressed=[];return}
       const menu=panel();
       if(menu&&!buttons(menu).includes(highlighted))highlight(buttons(menu)[0]);
       if(!menu&&highlighted)highlight(undefined);
       const pad=Array.from(rawPads()).find(x=>x?.connected);
-      if(!pad)return;
+      if(!pad){previous.clear();state.pressed=[];return}
       const now=new Set(watched.filter(i=>pad.buttons[i]?.pressed));
+      if(!pad.mapping&&pad.axes.length>=8){
+        if(pad.axes[6]<-.65)now.add(14);else if(pad.axes[6]>.65)now.add(15);
+        if(pad.axes[7]<-.65)now.add(12);else if(pad.axes[7]>.65)now.add(13);
+      }
+      state.pressed=[...now];
       for(const i of now){
         if(previous.has(i))continue;
+        state.lastPress={button:i,at:Date.now()};
         if(i===9)navigate('start');
         else if(menu&&navButtons[i])navigate(navButtons[i]);
         else if(!menu&&i===10)state.combat('target');
@@ -200,7 +217,9 @@ function view(install) {
   }
   const npc=q('#npc-menu.show')?{name:txt('#npc-name'),choices:[...q('#npc-functions').querySelectorAll('button')].map(b=>({label:b.textContent.trim(),disabled:b.disabled}))}:null;
   let catalog=[], realRows=[];
+  const skillNames=new Map();
   if(typeof skillList!=='undefined'&&typeof bar!=='undefined'&&bar&&typeof BAR_COLS!=='undefined') {
+    for(const skill of skillList)skillNames.set(String(skill.id),skill.name);
     catalog=skillList.filter(s=>!s.passive&&skillGroup(s)!==6).map(s=>({tid:String(s.tid),name:s.name,icon:iconFor(s)}));
     function iconFor(skill){const node=skillTile(skill);return icon(node)}
     realRows=[0,1,2,3].map(row=>BAR_COLS.map((col)=>{
@@ -208,7 +227,9 @@ function view(install) {
       return {tid:String(tid),item:tid<0};
     }));
   }
-  return {online:true,nativeMenu:window.__thor.menu(),bindings:window.__thor.bind,lastMacro:window.__thor.lastMacro,
+  return {online:true,pressed:window.__thor.pressed||[],lastPress:window.__thor.lastPress,
+    buffRows:typeof bar!=='undefined'&&bar?[bar.bRow??1,bar.bRow2??-1]:[],
+    fullscreen:!!document.fullscreenElement,nativeMenu:window.__thor.menu(),bindings:window.__thor.bind,lastMacro:window.__thor.lastMacro,
     activeRow:typeof macroRow==='number'?String(macroRow):'',inventory,npc,catalog,realRows,select:window.__thor.select||0,focused:document.hasFocus(),level:txt('#level'),hp:txt('#hp-text'),mp:txt('#mp-text'),xp:txt('#exp-text'),
     bars:['hp','mp','exp'].map(k=>parseFloat(q('#'+k+'-fill')?.style.width)||0),
     macro:!!q('#macro-on:not([hidden])'),map,
@@ -222,7 +243,7 @@ function view(install) {
     chat:[...q('#chat-log').children].filter(x=>!x.hidden).slice(-25).map(x=>({text:x.textContent.trim().slice(0,300),color:getComputedStyle(x).color})),
     slots:[...document.querySelectorAll('#bar-rows .skill')].slice(0,40).map(x=>{
       const src=x.querySelector('img.icon')?.src||'';
-      return {key:x.querySelector('.key')?.textContent.trim(),id:x.dataset.id||'',icon:src.startsWith(location.origin+'/')?src:'',
+      return {key:x.querySelector('.key')?.textContent.trim(),id:x.dataset.id||'',name:skillNames.get(x.dataset.id)||'',icon:src.startsWith(location.origin+'/')?src:'',
         disabled:x.classList.contains('nomp'),cooldown:x.querySelector('.cd')?.textContent.trim()||''};
     })};
 }
@@ -353,6 +374,20 @@ function valid(a) {
   return false;
 }
 let snapshot, currentPage;
+async function fullscreen(page){
+  try{
+    await call(page,`(async()=>{
+      const state=window.__thor;
+      if(!state||state.fullscreenEntered||Date.now()<(state.fullscreenRetry||0)
+        ||document.fullscreenElement||!document.hasFocus()||!document.querySelector('#hud.show'))return;
+      state.fullscreenRetry=Date.now()+3000;
+      try{
+        await document.documentElement.requestFullscreen({navigationUI:'hide'});
+        state.fullscreenEntered=!!document.fullscreenElement;
+      }catch{}
+    })()`,true);
+  }catch{}
+}
 async function read() {
   if(snapshot)return snapshot;
   snapshot=(async()=>{
@@ -362,6 +397,7 @@ async function read() {
     const focus=states.findIndex(d=>d?.online&&d.focused);
     const i=focus>=0?focus:playing.length===1?playing[0]:-1;
     currentPage=i>=0?list[i]:null;
+    if(focus>=0&&!states[focus].fullscreen)void fullscreen(list[focus]);
     return i>=0?{page:currentPage,data:states[i]}:{data:{online:false}};
   })().finally(()=>{snapshot=null});
   return snapshot;

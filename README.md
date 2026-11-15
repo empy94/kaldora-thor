@@ -2,26 +2,24 @@
 
 An independent Android companion for playing Kaldora on the AYN Thor. The game runs in Chrome on the upper display. The lower display shows game data and sends player-triggered actions through the local USB test bridge.
 
-![AYN Thor with Kaldora and an inventory concept](docs/images/thor-inventory-mockup.png)
+![Kaldora gameplay and the Controls panel captured on an AYN Thor](docs/images/thor-live.png)
 
-*Illustrative concept based on the supplied Thor mockup. The actual inventory capture is below.*
+*Both displays were captured on a physical AYN Thor running Kaldora Thor 0.7. The console frame comes from the supplied reference.*
 
-![Inventory on the lower screen of a physical AYN Thor](docs/images/inventory-thor.png)
-
-## Controls in 0.6
+## Controls in 0.7
 
 | Control | Action |
 | --- | --- |
-| **L3** | Cycle the target with Kaldora's native targeting action. |
-| **R3** | Basic attack using Kaldora's native action. |
+| **L3** | Cycle the target with Kaldora’s native targeting action. |
+| **R3** | Basic attack using Kaldora’s native action. |
 | **Start** | Open or back out of the game menu. |
-| **D-pad, A, B** | Move the highlight, choose a button, or go back in supported menus and NPC dialogs. |
-| **L1** | Reserved. It is omitted from skill and macro settings. |
-| **Select** | Toggle navigation of the lower companion panel. |
+| **D-pad, A, B** | Move the highlight, confirm, or go back in supported game menus and NPC dialogs. The Controls panel offers the same actions by touch while a game menu is open. |
+| **L1** | Reserved. |
+| **Select** | Toggle navigation of the lower panel. |
 
-**Skills** uses compact native icons and displays cooldowns. Use **Pick skill** and **Bind** to assign an equipped skill. **Macros** uses Kaldora's rows. Each row takes one button, and selectors exclude buttons already assigned to another row or the other section. **Inventory** displays live Bag, Pet and Storage tabs. The chat composer stays visible and **Map** follows the character automatically.
+**Controls** shows the button being held and its current action. Press a configurable button, choose a skill or an available macro row, then select **Save binding**. **Skills** uses the game’s icons and cooldowns. **Macros** keeps the native rows and editable slots. Rows configured as buffs in Kaldora send the native buff command and need no enemy target. Each button and macro row can have one assignment at a time.
 
-The APK and the game remain in English. The USB bridge needs the PC, USB debugging and a running Chrome session. Physical button mapping and combat still need hands-on confirmation across controller modes. The companion does not send commands without a player action.
+The lower Inventory tab is hidden for this version. Chat keeps its composer visible, and Map follows the character. Chrome requests fullscreen when focused gameplay is ready and the USB bridge is running. The APK uses English labels. The PC and USB debugging are required for live game data and actions.
 
 ## Build and run
 
