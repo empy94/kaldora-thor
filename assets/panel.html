@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src file: data: https://play.kaldora.eu">
+<title>Kaldora</title>
+<style>
+:root{color-scheme:dark;--ink:#e4eff8;--muted:#95aabb;--rim:#4e6878;--gold:#c8ab79;--ice:#9bdafe;--plate:#131e29}
+*{box-sizing:border-box}html,body{height:100%;margin:0}body{display:flex;flex-direction:column;gap:7px;padding:7px 9px;background:#090f16;color:var(--ink);font:14px system-ui,sans-serif}
+nav{display:flex;gap:5px}button{flex:1;min-height:40px;border:1px solid var(--rim);border-radius:5px;background:linear-gradient(#314653,#14202a 60%);color:var(--ink);font:600 13px system-ui}
+button:disabled{opacity:.48}button[aria-selected=true]{color:#e4f7ff;border-color:var(--ice);box-shadow:inset 0 0 12px #4aaee855}
+button img{width:20px;height:20px;vertical-align:middle;margin-right:4px}
+#vitals{display:grid;grid-template-columns:auto repeat(3,1fr);gap:5px;align-items:stretch}
+#level,.meter{border:1px solid #394957;border-radius:4px;padding:5px;background:var(--plate)}
+#level{display:grid;place-content:center;color:var(--gold);font-weight:bold}.meter{min-width:0;text-align:center;font-size:11px;white-space:nowrap}
+.track{height:4px;margin-top:3px;border-radius:4px;background:#36414a;overflow:hidden}.fill{height:100%;width:0%;background:#bd565c}
+.meter:nth-child(3) .fill{background:#55b6ec}.meter:nth-child(4) .fill{background:#75b97d}
+section{min-height:0;flex:1;overflow:auto;border:1px solid #354b5d;border-radius:5px;padding:8px;background:radial-gradient(ellipse at top,#172837,var(--plate) 75%)}
+section[hidden]{display:none}.row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:6px}
+.slot{position:relative;display:grid;place-items:center;min-height:56px;background:#0c1822;border:1px solid #526575;border-radius:5px;padding:4px;color:var(--gold)}
+.slot img{width:34px;height:34px;object-fit:contain}.slot small{font-size:11px}.slot img[hidden]{display:none}.slot.off img{opacity:.4}.slot span{position:absolute;right:4px;top:4px;font-size:10px;color:var(--ice)}
+#status{font-size:11px;color:var(--muted);margin:0 2px}#chatLog{font-size:13px;overflow-wrap:anywhere}#chatLog div{padding:3px;border-bottom:1px solid #264050}
+p{margin:4px 0 10px;color:var(--muted);line-height:1.4}output{color:var(--ice)}dd{margin:0 0 5px}dt{float:left;clear:left;min-width:120px;color:var(--gold)}
+nav button{min-width:0}button img{width:17px;height:17px} .tools,.chips,form{display:flex;gap:5px;margin:0 0 7px;flex-wrap:wrap}
+.chips button,.tools button{flex:0 1 auto;padding:0 10px}.tools select,form input{flex:1;min-width:0;padding:7px;background:#0d1924;color:var(--ink);border:1px solid var(--rim);border-radius:4px}
+form button{flex:0 0 auto;padding:0 9px}.slot{font-weight:normal}.slot:disabled{opacity:.65}
+#mapImage{width:100%;height:calc(100% - 52px);object-fit:contain}.active{border-color:var(--ice);color:var(--ice)}
+#feedback:empty{display:none}#feedback{position:absolute;bottom:9px;left:14px;background:#121f2d;border:1px solid var(--rim);padding:6px;z-index:5}
+:focus-visible{outline:2px solid var(--ice);outline-offset:-2px}
+
+#chat:not([hidden]){display:flex;flex-direction:column}
+#chatLog{flex:1;overflow:auto;min-height:0;margin-bottom:5px}
+form{margin:0;flex-wrap:nowrap}
+#macroSlots,#bagGrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-bottom:6px}
+#macroSlots .slot,#bagGrid .slot{min-height:36px;padding:2px}
+#macroSlots img,#bagGrid img{width:27px;height:27px;margin:0}
+.navFocus{outline:2px solid var(--ice)}
+.slot:active,.castFlash{filter:brightness(1.6)}
+#npc{padding:6px;border:1px solid var(--gold);margin-bottom:7px}
+#skills .slot span{font-weight:bold;min-width:18px;text-align:center;background:#08111dda;border-radius:5px}
+
+nav{gap:6px}nav button{min-height:44px}
+.tools{gap:8px}.tools button,.tools select{min-height:44px}
+#sorts{display:flex;flex-direction:column}#sorts[hidden]{display:none}
+#skills{padding:4px 2px}.row{grid-template-columns:repeat(4,minmax(44px,58px));justify-content:start;gap:8px;margin-bottom:5px}
+#skills .slot{border:0;background:none;min-height:51px;padding:0;box-shadow:none;display:flex;flex-direction:column;justify-content:center;gap:2px}
+#skills .slot:disabled{opacity:1}#skills .slot.empty{opacity:.30}
+#skills .slot.selected .art{outline:2px solid var(--ice);outline-offset:2px}
+#skills .slot .art{width:40px;height:40px;position:relative;border-radius:5px;overflow:hidden}
+#skills .slot .art img{display:block;width:100%;height:100%;margin:0}
+#skills .slot.noMana img{filter:brightness(.4) saturate(.5)}
+#skills .slot .cooldown{position:absolute;inset:0;display:grid;place-items:center;background:#000a;color:var(--gold);font-weight:bold;font-size:17px}
+#skills .slot .cooldown[hidden]{display:none}
+#skills .slot small{font-size:10px;font-weight:700;color:var(--ink);min-height:14px}
+#macroSlots,#bagGrid{gap:7px}
+#macroSlots .slot,#bagGrid .slot{min-height:44px;background:#0b1720;border-color:#263b49}
+#macroSlots .slot.active,#bagGrid .slot.active{border-color:var(--ice)}
+#macroPalette{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;padding-bottom:7px}
+#macroPalette[hidden]{display:none}#macroPalette button{min-height:44px;padding:4px;background:#101c25}
+#macroPalette img{width:28px;height:28px;margin:0;object-fit:contain}
+#map{padding:6px;background:#0b141d;position:relative}
+#mapImage{width:100%;height:100%;object-fit:contain;border-radius:4px;background:#080e14}
+#mapHint{position:absolute;inset:0;margin:0;display:grid;place-items:center;text-align:center}
+#mapHint[hidden]{display:none}
+</style>
+
+<nav aria-label="Panels">
+<button data-tab="sorts"><img src="skills.webp" alt="">Skills</button>
+<button data-tab="map"><img src="map.webp" alt="">Map</button>
+<button data-tab="chat"><img src="chat.svg" alt="">Chat</button>
+<button data-tab="macros"><img src="thumb-macro.webp" alt="">Macros</button>
+<button data-tab="menus"><img src="bag.webp" alt="">Inventory</button>
+</nav>
+<div id="vitals"><div id="level">Level —</div><div class="meter"><b id="hp">HP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="mp">MP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="xp">EXP —</b><div class="track"><div class="fill"></div></div></div></div>
+<section id="sorts"><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button"></select><button id="assignSkill">Bind</button><button id="clearSkill">Unbind</button></div></section>
+<section id="map" hidden><p id="mapHint">Waiting for the game map…</p><img id="mapImage" alt="Kaldora map" hidden></section>
+<section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
+<section id="macros" hidden><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button"></select><button id="bindMacro">Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
+<section id="menus" hidden><div id="npc" hidden></div><div class="tools"><button id="inventory">Bag</button><button id="pet">Pet</button><button id="bank">Storage</button></div><div id="bagTabs" class="tools"></div><div id="bagGrid"></div><p id="itemInfo"></p><div class="tools"><button id="moveItem" hidden>Move here</button><button id="clearItem" hidden>Cancel move</button></div></section>
+<output id="feedback" role="status"></output>
+<script>
+const $=id=>document.getElementById(id), tabs=[...document.querySelectorAll('nav button')];
+const keys={'4':'X','5':'Y','6':'R1','A3':'L2','A4':'A','A5':'B','A6':'R2'};
+const padCodes={BUTTON_X:'2',BUTTON_Y:'3',BUTTON_R1:'4',BUTTON_L2:'5',BUTTON_A:'6',BUTTON_B:'7',BUTTON_R2:'8'};
+let d={},tab=0,mode=false,cursor=-1,group='inv',row=0,macroSlot=0,pending=false,complete,timer,restored=false,lastSelect=null,mapRequested=false;
+let skillBindings={},macroBindings={},whisper='', selectedSkill='', pickSkill=false, pickMacro=false;
+try{
+ const old=JSON.parse(localStorage.getItem('bindings')||'{}');
+ const saved=JSON.parse(localStorage.getItem('controllerProfiles')||'null');
+ skillBindings=saved?.skills||Object.fromEntries(Object.entries(old).filter(([,b])=>b.type==='spell'));
+ macroBindings=saved?.macros||Object.fromEntries(Object.entries(old).filter(([,b])=>b.type==='macro'));
+ delete skillBindings['3'];delete macroBindings['3'];
+ const rows=new Set();
+ for(const [k,b] of Object.entries(macroBindings)){
+  if(!keys[k]||rows.has(b.value))delete macroBindings[k];else rows.add(b.value);
+ }
+ for(const k of Object.keys(skillBindings))if(!keys[k]||macroBindings[k])delete skillBindings[k];
+ whisper=localStorage.getItem('lastWhisper')||'';
+}catch{}
+const activeBindings=()=>({...skillBindings,...macroBindings});
+const same=(a,b)=>Object.keys(a||{}).length===Object.keys(b||{}).length&&Object.entries(a||{}).every(([k,v])=>b?.[k]?.type===v.type&&b[k].value===v.value);
+function notice(msg){$('feedback').textContent=msg;clearTimeout(timer);timer=setTimeout(()=>$('feedback').textContent='',2200)}
+function send(type,value,done){
+ if(pending){if(type!=='pad')notice('One action at a time');return}
+ if(!d.online){notice('USB link unavailable');return}
+ pending=true;complete=done;
+ location.href='kaldorathor://action?data='+encodeURIComponent(JSON.stringify({type,value}));
+}
+window.actionResult=ok=>{pending=false;if(ok)complete?.();else notice('Action not confirmed');complete=null};
+function select(i){
+ const previous=tab;
+ tab=(i+tabs.length)%tabs.length;cursor=-1;
+ tabs.forEach((b,j)=>{b.setAttribute('aria-selected',j===tab);$(b.dataset.tab).hidden=j!==tab});
+ if(previous===1&&tab!==1&&mapRequested){mapRequested=false;if(!pending&&d.online)send('mapRestore','')}
+ if(tab===1&&d.online&&!pending){mapRequested=true;send('mapView','')}
+ if(tab===2)$('chatLog').scrollTop=$('chatLog').scrollHeight;
+}
+tabs.forEach((b,i)=>b.onclick=()=>select(i));select(0);
+function btn(label,fn,on=false){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;if(on)b.classList.add('active');return b}
+function addIcon(node,src){if(src){const i=document.createElement('img');i.src=src;i.alt='';node.append(i)}}
+function controls(){return [...document.querySelectorAll('section:not([hidden]) button:not(:disabled):not([hidden]),section:not([hidden]) select,section:not([hidden]) input')]}
+function focusAt(index){
+ const c=controls();if(!c.length)return;
+ cursor=(index+c.length)%c.length;c[cursor].focus({preventScroll:true});c[cursor].scrollIntoView({block:'nearest'});
+}
+function toggleNav(){
+ mode=!mode;cursor=-1;
+ if(mode){notice('Menu controls');focusAt(0)}else{document.activeElement.blur();notice('Game controls')}
+}
+window.padKey=k=>{
+ if(k==='BUTTON_START'){if(mode)toggleNav();send('nav','start');return}
+ const native={DPAD_UP:'up',DPAD_DOWN:'down',DPAD_LEFT:'left',DPAD_RIGHT:'right',BUTTON_A:'accept',BUTTON_B:'back'};
+ if(d.nativeMenu&&native[k]&&!mode){send('nav',native[k]);return}
+ if(k==='BUTTON_THUMBL'||k==='BUTTON_THUMBR'){if(!mode&&!d.nativeMenu)send('combat',k==='BUTTON_THUMBL'?'target':'attack');return}
+ if(k==='BUTTON_SELECT'||k==='BUTTON_MODE'){toggleNav();return}
+ if(mode){
+  if(k==='DPAD_LEFT'||k==='DPAD_RIGHT'){select(tab+(k==='DPAD_RIGHT'?1:-1));focusAt(0)}
+  if(k==='DPAD_UP'||k==='DPAD_DOWN')focusAt(cursor+(k==='DPAD_DOWN'?1:-1));
+  if(k==='BUTTON_A'){const el=controls()[cursor];if(el?.tagName==='INPUT'||el?.tagName==='SELECT')el.focus();else el?.click()}
+  if(k==='BUTTON_B')toggleNav();
+ }else if(padCodes[k])send('pad',padCodes[k]);
+};
+window.showInput=()=>{};
+function updateChoices(){
+ const rebuild=(id,blocked)=>{
+  const s=$(id),previous=s.value;
+  const available=Object.entries(keys).filter(([k])=>!blocked[k]);
+  s.replaceChildren(...available.map(([k,label])=>new Option(label,k)));
+  if(available.some(([k])=>k===previous))s.value=previous;
+  s.disabled=!available.length;
+ };
+ rebuild('skillBind',macroBindings);
+ const otherRows=Object.fromEntries(Object.entries(macroBindings).filter(([,b])=>b.value!==String(row)));
+ rebuild('macroBind',{...skillBindings,...otherRows});
+}
+updateChoices();
+function save(skills, macros){
+ send('bind',{...skills,...macros},()=>{
+  skillBindings=skills;macroBindings=macros;
+  localStorage.setItem('controllerProfiles',JSON.stringify({skills,macros}));
+  updateChoices();notice('Binding saved');drawSkills(d.slots||[]);drawMacros();
+ });
+}
+$('skillPick').onclick=()=>{
+ pickSkill=!pickSkill;selectedSkill='';drawSkills(d.slots||[]);
+ if(pickSkill)notice('Tap the skill you want to bind');
+};
+$('assignSkill').onclick=()=>{
+ if(!selectedSkill){notice('Pick a skill first');return}
+ const key=$('skillBind').value;
+ if(!keys[key]){notice('No free button');return}
+ if(macroBindings[key]){notice(keys[key]+' is reserved by a macro');return}
+ save({...skillBindings,[key]:{type:'spell',value:selectedSkill}},macroBindings);
+ pickSkill=false;
+};
+$('bindMacro').onclick=()=>{
+ const key=$('macroBind').value;
+ if(!keys[key]||skillBindings[key]){notice('No free button');return}
+ if(macroBindings[key]&&macroBindings[key].value!==String(row)){notice('Button is already bound to another row');return}
+ const next=Object.fromEntries(Object.entries(macroBindings).filter(([,b])=>b.value!==String(row)));
+ next[key]={type:'macro',value:String(row)};save(skillBindings,next);
+};
+$('unbindMacro').onclick=()=>save(skillBindings,Object.fromEntries(Object.entries(macroBindings).filter(([,b])=>b.value!==String(row))));
+$('clearSkill').onclick=()=>{const next={...skillBindings};delete next[$('skillBind').value];save(next,macroBindings)};
+function setMacroSlot(tid){
+ if(!d.realRows?.[row]?.[macroSlot])return;
+ send('macroSlot',{row,slot:macroSlot,tid:Number(tid)},()=>{pickMacro=false;drawMacros();notice('Slot updated')});
+}
+$('pickMacroSkill').onclick=()=>{pickMacro=!pickMacro;drawMacros()};
+$('clearMacroSlot').onclick=()=>setMacroSlot(0);
+$('runMacro').onclick=()=>send('macro',String(row));
+
+let itemSource='',itemTarget=-1;
+function clearItem(){itemSource='';itemTarget=-1;$('itemInfo').textContent='';drawBag()}
+$('clearItem').onclick=clearItem;
+$('moveItem').onclick=()=>{
+ const target=d.inventory?.[group]?.slots?.[itemTarget];
+ if(itemSource&&target)send('bagMove',{group,from:itemSource,to:itemTarget,target:target.id},clearItem);
+};
+for(const [id,g] of [['inventory','inv'],['pet','pet'],['bank','bank']])$(id).onclick=()=>{group=g;clearItem()};
+function showWhisper(){$('reply').hidden=!whisper;$('reply').textContent=whisper?'Whisper '+whisper:'Whisper'}
+showWhisper();
+$('reply').onclick=()=>{const x=$('message');if(!x.value.startsWith('/'))x.value='/w '+whisper+' '+x.value;x.focus()};
+$('composer').onsubmit=e=>{
+ e.preventDefault();const x=$('message'),m=x.value.trim();if(!m)return;
+ send('chat',m,()=>{const target=/^\/w\s+(\S+)\s+\S/i.exec(m);if(target){whisper=target[1];localStorage.setItem('lastWhisper',whisper);showWhisper()}
+ if(x.value.trim()===m)x.value=''});
+};
+let skillLayout='', skillNodes=[];
+function drawSkills(slots){
+ const ordered=[], used=new Set();
+ for(const [key,label] of Object.entries(keys)){
+  if(macroBindings[key])continue;
+  const binding=skillBindings[key];
+  const match=binding?slots.find(x=>x.id===binding.value):slots.find(x=>x.key===key);
+  if(match?.id){ordered.push({...match,label});used.add(match.id)}
+ }
+ for(const x of slots)if(x.id&&!used.has(x.id)){ordered.push({...x,label:''});used.add(x.id)}
+ const layout=JSON.stringify(ordered.map(x=>[x.id,x.icon,x.label]));
+ if(layout!==skillLayout){
+  skillLayout=layout;skillNodes=[];$('skills').replaceChildren();
+  for(let i=0;i<ordered.length;i+=4){
+   const line=document.createElement('div');line.className='row';
+   for(const x of ordered.slice(i,i+4)){
+    const b=btn('',()=>{
+     if(pickSkill){selectedSkill=x.id;drawSkills(d.slots||[]);notice('Choose a controller button, then Bind')}
+     else send('spell',x.id,()=>{b.classList.add('castFlash');setTimeout(()=>b.classList.remove('castFlash'),230)});
+    });
+    b.className='slot';
+    b.setAttribute('aria-label',d.catalog?.find(c=>c.icon===x.icon)?.name||'Equipped skill');
+    const art=document.createElement('div');art.className='art';addIcon(art,x.icon);
+    const cd=document.createElement('div');cd.className='cooldown';art.append(cd);
+    const label=document.createElement('small');label.textContent=x.label;
+    b.append(art,label);line.append(b);skillNodes.push({b,cd});
+   }
+   $('skills').append(line);
+  }
+ }
+ ordered.forEach((x,i)=>{
+  const {b,cd}=skillNodes[i];
+  b.disabled=!pickSkill&&(x.disabled||!!x.cooldown);
+  b.classList.toggle('selected',x.id===selectedSkill);
+  b.classList.toggle('noMana',!!x.disabled);
+  cd.hidden=!x.cooldown;cd.textContent=x.cooldown||'';
+ });
+ $('skillPick').setAttribute('aria-pressed',String(pickSkill));
+ $('skillPick').textContent=pickSkill?'Cancel pick':'Pick skill';
+}
+function drawMacros(){
+ $('macroRows').replaceChildren(...Array.from({length:4},(_,i)=>btn(
+  'Row '+(i+1)+(Object.entries(macroBindings).filter(([,b])=>b.value===String(i)).map(([k])=>' · '+keys[k]).join('')),
+  ()=>{row=i;macroSlot=0;pickMacro=false;updateChoices();drawMacros()},i===row)));
+ const skills=d.catalog||[], slots=d.realRows?.[row]||[];
+ $('macroSlots').replaceChildren(...slots.map((s,i)=>{
+  const skill=skills.find(k=>k.tid===s.tid);
+  const b=btn('',()=>{macroSlot=i;pickMacro=true;drawMacros()},i===macroSlot);
+  b.classList.add('slot');b.disabled=s.item;
+  if(skill)addIcon(b,skill.icon);else b.textContent=s.item?'Item':'+';
+  b.setAttribute('aria-label',skill?.name||'Slot '+(i+1));return b;
+ }));
+ $('pickMacroSkill').setAttribute('aria-expanded',String(pickMacro));
+ $('macroPalette').hidden=!pickMacro;
+ $('macroPalette').replaceChildren(...skills.map(s=>{
+  const b=btn(s.icon?'':s.name,()=>setMacroSlot(s.tid));
+  b.title=s.name;b.setAttribute('aria-label',s.name);addIcon(b,s.icon);return b;
+ }));
+}
+function drawBag(){
+ const bag=d.inventory?.[group]||{};
+ $('bagTabs').replaceChildren(...(bag.tabs||[]).map((t,i)=>btn(t.name,()=>send('bagTab',{group,index:i},clearItem),t.on)));
+ $('bagGrid').replaceChildren(...(bag.slots||[]).map((s,i)=>{
+  const b=btn('',()=>{
+   if(!itemSource&&s.id){itemSource=s.id;$('itemInfo').textContent=s.hint||'Select a destination slot'}
+   else if(s.id===itemSource){clearItem();return}
+   else{itemTarget=i;$('itemInfo').textContent='Move to slot '+(i+1)+'?'}
+   drawBag();
+  },(!!s.id&&s.id===itemSource)||i===itemTarget);
+  b.classList.add('slot');b.disabled=!s.id&&!itemSource;
+  b.setAttribute('aria-label',s.id?'Item in slot '+(i+1):'Empty slot '+(i+1));
+  addIcon(b,s.icon);
+  if(s.count){const n=document.createElement('small');n.textContent=s.count;b.append(n)}
+  return b;
+ }));
+ $('moveItem').hidden=itemTarget<0;$('clearItem').hidden=!itemSource;
+}
+let rendered={};
+function changed(id,value,fn){const key=JSON.stringify(value);if(rendered[id]===key)return;rendered[id]=key;fn(value)}
+window.renderGame=state=>{
+ d=state;
+ for(const [id,label] of [['level','Level'],['hp','HP'],['mp','MP'],['xp','EXP']])$(id).textContent=d[id]||label+' —';
+ document.querySelectorAll('.fill').forEach((e,i)=>e.style.width=Math.min(100,Math.max(0,d.bars?.[i]||0))+'%');
+ if(!d.online){restored=false;lastSelect=null;mapRequested=false}
+ if(d.online&&!pending&&!same(d.bindings,activeBindings())&&Date.now()-(restored||0)>2000){restored=Date.now();send('bind',activeBindings())}
+ const status=$('macroState');
+ status.textContent=d.online?(d.activeRow!==''&&d.activeRow!=null?'Row '+(+d.activeRow+1)+' active':''):'USB link unavailable';
+ if(d.lastMacro&&!d.lastMacro.ok&&Date.now()-d.lastMacro.at<2200)status.textContent='Row '+(+d.lastMacro.row+1)+' did not start. Check its slots.';
+ if(d.online&&lastSelect!==null&&d.select!==lastSelect)toggleNav();
+ lastSelect=d.online?d.select:null;
+ if(tab===1&&d.online&&!mapRequested&&!d.map&&!pending){mapRequested=true;send('mapView','')}
+ changed('skills',d.slots||[],drawSkills);
+ changed('map',d.map||'',m=>{$('mapImage').hidden=!m;$('mapHint').hidden=!!m;if(m)$('mapImage').src=m});
+ changed('filters',d.filters||[],f=>$('filters').replaceChildren(...f.filter(x=>x.name).map(x=>btn(x.name,()=>send('filter',x.name),x.on))));
+ changed('chat',d.chat||[],m=>{
+  $('chatLog').replaceChildren(...m.map(x=>{const el=document.createElement('div');el.textContent=x.text;el.style.color=x.color;return el}));
+  $('chatLog').scrollTop=$('chatLog').scrollHeight;
+ });
+ changed('macro',[d.realRows,d.catalog],drawMacros);
+ changed('bag',d.inventory,drawBag);
+ changed('npc',d.npc,npc=>{
+  $('npc').hidden=!npc;$('npc').replaceChildren();
+  if(!npc)return;
+  select(4);
+  const name=document.createElement('b');name.textContent=npc.name;$('npc').append(name);
+  const panel=document.createElement('div');panel.className='tools';
+  npc.choices.forEach(c=>{const b=btn(c.label,()=>send('npc',c.label,()=>{if(c.label==='Storage'){group='bank';drawBag()}}));b.disabled=c.disabled;panel.append(b)});
+  $('npc').append(panel);
+ });
+};
+renderGame({});
+</script>
+</html>

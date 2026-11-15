@@ -1,0 +1,11 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="eu.kaldorathor" android:versionCode="6" android:versionName="0.6">
+  <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="35" />
+  <uses-permission android:name="android.permission.INTERNET" />
+  <queries><package android:name="com.android.chrome" /></queries>
+  <application android:label="Kaldora Thor" android:icon="@drawable/kaldora" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false" android:networkSecurityConfig="@xml/network_security">
+    <activity android:name=".Launcher" android:exported="true" android:screenOrientation="landscape">
+      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+    </activity>
+    <activity android:name=".Companion" android:exported="false" android:taskAffinity="eu.kaldorathor.companion" android:launchMode="singleTask" android:screenOrientation="landscape"/>
+  </application>
+</manifest>

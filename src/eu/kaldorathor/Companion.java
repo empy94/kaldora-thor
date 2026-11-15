@@ -1,0 +1,190 @@
+package eu.kaldorathor;
+
+import android.app.Activity;
+import android.os.Bundle;
+import android.os.SystemClock;
+import android.view.InputDevice;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
+import android.webkit.WebView;
+import org.json.JSONObject;
+
+public final class Companion extends Activity {
+    private WebView panel;
+    private final java.util.concurrent.ExecutorService motion =
+        java.util.concurrent.Executors.newSingleThreadExecutor();
+    private final java.util.concurrent.atomic.AtomicReference<String> latestDirection =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    private final java.util.concurrent.atomic.AtomicBoolean motionPending =
+        new java.util.concurrent.atomic.AtomicBoolean();
+    private String previousDirection = "[]";
+    private long lastMotion;
+
+    private void sendMotion(String direction) {
+        latestDirection.set(direction);
+        flushMotion();
+    }
+
+    private void flushMotion() {
+        if (motion.isShutdown() || !motionPending.compareAndSet(false, true)) return;
+        motion.execute(() -> {
+            try {
+                String direction;
+                while (!motion.isShutdown() && (direction = latestDirection.getAndSet(null)) != null)
+                    post("{\"type\":\"move\",\"value\":" + direction + "}");
+            } finally {
+                motionPending.set(false);
+                if (latestDirection.get() != null) flushMotion();
+            }
+        });
+    }
+    private final java.util.concurrent.ScheduledExecutorService updates =
+        java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+    private volatile boolean visible;
+    private String bridgeToken;
+
+    private void sendAction(String json) {
+        if (bridgeToken == null || json == null || json.length() > 4096 || updates.isShutdown()) return;
+        updates.execute(() -> {
+            final boolean accepted = post(json);
+            runOnUiThread(() -> {
+                if (!isDestroyed()) panel.evaluateJavascript("window.actionResult?.(" + accepted + ")",null);
+            });
+        });
+    }
+
+    private boolean post(String json) {
+            if (bridgeToken == null) return false;
+            boolean ok = false;
+            java.net.HttpURLConnection request = null;
+            try {
+                request = (java.net.HttpURLConnection)new java.net.URL("http://127.0.0.1:49226/action").openConnection();
+                request.setInstanceFollowRedirects(false);
+                request.setConnectTimeout(1200);
+                request.setReadTimeout(3000);
+                request.setRequestMethod("POST");
+                request.setRequestProperty("Authorization", "Bearer " + bridgeToken);
+                request.setRequestProperty("Content-Type", "application/json");
+                request.setDoOutput(true);
+                try (java.io.OutputStream stream = request.getOutputStream()) {
+                    stream.write(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(request.getInputStream(),"UTF-8"))) {
+                    ok = new JSONObject(reader.readLine()).optBoolean("ok");
+                }
+            } catch (Exception ignored) {
+            } finally {
+                if (request != null) request.disconnect();
+            }
+            return ok;
+    }
+
+    @Override protected void onStart() {
+        super.onStart();
+        visible = true;
+    }
+
+    @Override protected void onStop() {
+        visible = false;
+        super.onStop();
+    }
+
+    private void readGame(String token) {
+        if (!visible) return;
+        String snapshot = "{\"online\":false}";
+        java.net.HttpURLConnection connection = null;
+        try {
+            connection = (java.net.HttpURLConnection)
+                new java.net.URL("http://127.0.0.1:49226/game").openConnection();
+            connection.setInstanceFollowRedirects(false);
+            connection.setConnectTimeout(800);
+            connection.setReadTimeout(1600);
+            connection.setRequestProperty("Authorization", "Bearer " + token);
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(connection.getInputStream(), "UTF-8"))) {
+                snapshot = new JSONObject(reader.readLine()).toString();
+            }
+        } catch (Exception ignored) {
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+        final String data = JSONObject.quote(snapshot);
+        runOnUiThread(() -> {
+            if (visible && !isDestroyed())
+                panel.evaluateJavascript("window.renderGame?.(JSON.parse(" + data + "))", null);
+        });
+    }
+
+    @Override public void onCreate(Bundle state) {
+        super.onCreate(state);
+        getWindow().getDecorView().setSystemUiVisibility(5894 | 1024 | 512);
+        panel = new WebView(this);
+        panel.setBackgroundColor(0xff0c141e);
+        panel.getSettings().setJavaScriptEnabled(true);
+        panel.getSettings().setDomStorageEnabled(true);
+        panel.setWebViewClient(new android.webkit.WebViewClient() {
+            @Override public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
+                android.net.Uri uri = request.getUrl();
+                if (request.isForMainFrame() && "kaldorathor".equals(uri.getScheme()) && "action".equals(uri.getHost())) {
+                    sendAction(uri.getQueryParameter("data"));
+                }
+                return true;
+            }
+        });
+        setContentView(panel);
+        panel.loadUrl("file:///android_asset/panel.html");
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.InputStreamReader(getAssets().open("usb-key.txt"), "UTF-8"))) {
+            String token = reader.readLine();
+            bridgeToken = token;
+            updates.scheduleWithFixedDelay(() -> readGame(token), 600, 700,
+                java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (java.io.IOException ignored) {}
+    }
+
+    private void report(String input) {
+        panel.evaluateJavascript("window.showInput?.(" + JSONObject.quote(input) + ")", null);
+    }
+
+    @Override public boolean dispatchKeyEvent(KeyEvent event) {
+        int source = event.getSource();
+        if ((source & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD
+                || (source & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) {
+                String key = KeyEvent.keyCodeToString(event.getKeyCode()).replace("KEYCODE_", "");
+                report(key);
+                panel.evaluateJavascript("window.padKey?.(" + JSONObject.quote(key) + ")", null);
+            }
+            if (event.getKeyCode() != KeyEvent.KEYCODE_BACK) return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override public boolean dispatchGenericMotionEvent(MotionEvent event) {
+        if (event.isFromSource(InputDevice.SOURCE_JOYSTICK)) {
+            long now = SystemClock.uptimeMillis();
+            float x = event.getAxisValue(MotionEvent.AXIS_X);
+            float y = event.getAxisValue(MotionEvent.AXIS_Y);
+            org.json.JSONArray direction = new org.json.JSONArray();
+            if (x < -.38f) direction.put("A");
+            if (x > .38f) direction.put("D");
+            if (y < -.38f) direction.put("W");
+            if (y > .38f) direction.put("S");
+            String value = direction.toString();
+            if (!value.equals(previousDirection) || (direction.length() > 0 && now - lastMotion > 120)) {
+                previousDirection = value;
+                lastMotion = now;
+                sendMotion(value);
+            }
+            return true;
+        }
+        return super.dispatchGenericMotionEvent(event);
+    }
+
+    @Override protected void onDestroy() {
+        motion.shutdownNow();
+        updates.shutdownNow();
+        panel.destroy();
+        super.onDestroy();
+    }
+}
