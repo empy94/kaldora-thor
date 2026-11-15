@@ -8,7 +8,7 @@
 :root{color-scheme:dark;--ink:#e4eff8;--muted:#95aabb;--rim:#4e6878;--gold:#c8ab79;--ice:#9bdafe;--plate:#131e29}
 *{box-sizing:border-box}html,body{height:100%;margin:0}body{display:flex;flex-direction:column;gap:7px;padding:7px 9px;background:#090f16;color:var(--ink);font:14px system-ui,sans-serif}
 nav{display:flex;gap:5px}button{flex:1;min-height:40px;border:1px solid var(--rim);border-radius:5px;background:linear-gradient(#314653,#14202a 60%);color:var(--ink);font:600 13px system-ui}
-button:disabled{opacity:.48}button[aria-selected=true]{color:#e4f7ff;border-color:var(--ice);box-shadow:inset 0 0 12px #4aaee855}
+button[hidden],select[hidden]{display:none!important}button:disabled{opacity:.48}button[aria-selected=true]{color:#e4f7ff;border-color:var(--ice);box-shadow:inset 0 0 12px #4aaee855}
 button img{width:20px;height:20px;vertical-align:middle;margin-right:4px}
 #vitals{display:grid;grid-template-columns:auto repeat(3,1fr);gap:5px;align-items:stretch}
 #level,.meter{border:1px solid #394957;border-radius:4px;padding:5px;background:var(--plate)}
@@ -89,10 +89,10 @@ nav{gap:6px}nav button{min-height:44px}
 <button data-tab="controls"><img src="settings.webp" alt="">Controls</button>
 </nav>
 <div id="vitals"><div id="level">Level —</div><div class="meter"><b id="hp">HP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="mp">MP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="xp">EXP —</b><div class="track"><div class="fill"></div></div></div></div>
-<section id="sorts"><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill">Bind</button><button id="clearSkill">Unbind</button></div></section>
+<section id="sorts"><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
 <section id="map" hidden><p id="mapHint">Waiting for the game map…</p><img id="mapImage" alt="Kaldora map" hidden></section>
 <section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
-<section id="macros" hidden><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro">Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
+<section id="macros" hidden><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
 <section id="controls" hidden>
 <div id="controlGuide" class="controlGuide"></div>
 <div class="controller">
@@ -336,7 +336,12 @@ $('bindMacro').onclick=()=>{
  next[key]={type:'macro',value:String(row)};save(skillBindings,next);
 };
 $('unbindMacro').onclick=()=>save(skillBindings,Object.fromEntries(Object.entries(macroBindings).filter(([,b])=>b.value!==String(row))));
-$('clearSkill').onclick=()=>{const next={...skillBindings};delete next[$('skillBind').value];save(next,macroBindings)};
+$('clearSkill').onclick=()=>{
+ if(!selectedSkill){notice('Pick a skill first');return}
+ const key=Object.keys(skillBindings).find(k=>skillBindings[k].value===selectedSkill);
+ if(!key){notice('This skill has no saved binding');return}
+ const next={...skillBindings};delete next[key];save(next,macroBindings);
+};
 function setMacroSlot(tid){
  if(!d.realRows?.[row]?.[macroSlot])return;
  send('macroSlot',{row,slot:macroSlot,tid:Number(tid)},()=>{pickMacro=false;drawMacros();notice('Slot updated')});
