@@ -21,9 +21,10 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===13){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===15){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
-  const state=window.__thor={version:13,until:Date.now()+4000,held:new Map(),bind:{}};
+  document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
+  const state=window.__thor={version:15,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -40,15 +41,21 @@ function inputs() {
   };
   const menuSelectors=['#npc-menu','#menu-win','#inventory','#petbag','#bank','#skills','#macro-win','#missions','#character'];
   const visible=x=>x&&x.getClientRects().length&&getComputedStyle(x).visibility!=='hidden';
-  const panel=()=>[...document.querySelectorAll('.panel.show,[role="dialog"].show')]
-    .filter(x=>visible(x)&&!x.closest('[hidden]'))
-    .sort((a,b)=>(parseInt(getComputedStyle(b).zIndex)||0)-(parseInt(getComputedStyle(a).zIndex)||0))[0]
-    ||menuSelectors.map(s=>document.querySelector(s)).find(x=>x?.classList.contains('show')&&visible(x));
+  const panel=()=>{
+    const dialogs=[...document.querySelectorAll('dialog[open],[role="dialog"][aria-modal="true"]')]
+      .filter(x=>visible(x)&&!x.closest('[hidden]'));
+    if(dialogs.length)return dialogs[dialogs.length-1];
+    return [...document.querySelectorAll('.panel.show,[role="dialog"].show')]
+      .filter(x=>visible(x)&&!x.closest('[hidden]'))
+      .sort((a,b)=>(parseInt(getComputedStyle(b).zIndex)||0)-(parseInt(getComputedStyle(a).zIndex)||0))[0]
+      ||menuSelectors.map(s=>document.querySelector(s)).find(x=>x?.classList.contains('show')&&visible(x));
+  };
   const buttons=p=>{
     const list=[...p.querySelectorAll('button,[role=button],#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#inv-trash,#pet-trash,#cash-trash,#mw-rows .skill,#mw-skills .skill')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
     return list.sort((a,b)=>Number(a.matches('.close,[data-close]'))-Number(b.matches('.close,[data-close]')));
   };
   let highlighted, dragSource, dragItem, dragMoved=false, anchor;
+  const anchors=new WeakMap();
   function highlight(next){
     if(highlighted===next)return;
     highlighted?.classList.remove('thor-nav');
@@ -56,6 +63,7 @@ function inputs() {
     if(next){
       const parent=next.parentElement;
       anchor=parent?.id?{parent:parent.id,index:[...parent.children].indexOf(next),id:next.id}:null;
+      const owner=panel();if(owner&&anchor)anchors.set(owner,anchor);
 next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'nearest'});}
   }
   const style=document.createElement('style');
@@ -74,7 +82,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     const list=buttons(current);
     if(command==='back'){
       if(dragSource){dragSource.classList.remove('thor-drag');dragSource=null;dragItem=null;dragMoved=false;return true}
-      const close=current.querySelector('h3 .close,.close,[data-close="'+current.id+'"]');
+      const close=current.querySelector('h3 .close,.close,[data-close="'+current.id+'"],#ask-no,[data-action="cancel"],button[value="cancel"]');
       if(close&&visible(close))close.click();
       else if(current.id==='menu-win')document.getElementById('menu-btn')?.click();
       else return false;
@@ -82,7 +90,8 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     }
     if(!list.length)return false;
     if(!list.includes(highlighted)){
-      const restored=anchor&&(anchor.id?document.getElementById(anchor.id):document.getElementById(anchor.parent)?.children[anchor.index]);
+      const saved=anchors.get(current);
+      const restored=saved&&(saved.id?document.getElementById(saved.id):document.getElementById(saved.parent)?.children[saved.index]);
       highlight(list.includes(restored)?restored:list[0]);
       if(command!=='accept'&&command!=='downAccept')return true;
     }
@@ -158,7 +167,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       if(!active()){previous.clear();highlight(undefined);state.pressed=[];return}
       const menu=panel();
       if(menu&&!buttons(menu).includes(highlighted)){
-        const list=buttons(menu), restored=anchor&&(anchor.id?document.getElementById(anchor.id):document.getElementById(anchor.parent)?.children[anchor.index]);
+        const list=buttons(menu), saved=anchors.get(menu), restored=saved&&(saved.id?document.getElementById(saved.id):document.getElementById(saved.parent)?.children[saved.index]);
         highlight(list.includes(restored)?restored:list[0]);
       }
       if(!menu&&highlighted)highlight(undefined);
