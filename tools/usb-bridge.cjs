@@ -21,10 +21,10 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===17){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===18){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:17,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:18,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -234,7 +234,6 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   setInterval(()=>{if(Date.now()>=state.until&&state.held.size)release()},400);
   function handle(e){
     if(e.isTrusted||e.target!==window||Date.now()>=state.until||!document.querySelector('#hud.show'))return;
-    if(hasNativePad())return;
     const down=e.type==='keydown';
     if(codes[e.code]){
       e.stopImmediatePropagation();
@@ -242,6 +241,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       dispatch(e.type,e.code,codes[e.code]);
       return;
     }
+    if(hasNativePad())return;
     const key=(e.altKey?'A':'')+e.code.replace(/^Digit/,'');
     if(e.code==='KeyM'&&down){e.stopImmediatePropagation();state.select=(state.select||0)+1;return}
     const b=key==='3'?null:state.bind[key];
