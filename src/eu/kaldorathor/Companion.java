@@ -17,7 +17,7 @@ public final class Companion extends Activity {
         new java.util.concurrent.atomic.AtomicReference<>();
     private final java.util.concurrent.atomic.AtomicBoolean motionPending =
         new java.util.concurrent.atomic.AtomicBoolean();
-    private String previousDirection = "[]";
+    private String previousDirection = "";
     private long lastMotion;
     private int previousHatX, previousHatY;
 
@@ -167,6 +167,8 @@ public final class Companion extends Activity {
         super.onWindowFocusChanged(hasFocus);
         if (!hasFocus && panel != null) {
             previousHatX = previousHatY = 0;
+            previousDirection = "";
+            sendMotion("{\"dir\":[],\"camera\":[0,0]}");
             panel.evaluateJavascript("window.resetPad?.()", null);
         }
     }
@@ -189,8 +191,21 @@ public final class Companion extends Activity {
             if (x > .38f) direction.put("D");
             if (y < -.38f) direction.put("W");
             if (y > .38f) direction.put("S");
-            String value = direction.toString();
-            if (!value.equals(previousDirection) || (direction.length() > 0 && now - lastMotion > 120)) {
+            float cameraX = event.getAxisValue(MotionEvent.AXIS_Z);
+            float cameraY = event.getAxisValue(MotionEvent.AXIS_RZ);
+            org.json.JSONArray camera = new org.json.JSONArray();
+            org.json.JSONObject input = new org.json.JSONObject();
+            try {
+                camera.put((double) cameraX);
+                camera.put((double) cameraY);
+                input.put("dir", direction);
+                input.put("camera", camera);
+            } catch (org.json.JSONException ignored) {
+                return true;
+            }
+            String value = input.toString();
+            boolean moving = direction.length() > 0 || Math.hypot(cameraX, cameraY) > .12;
+            if (!value.equals(previousDirection) || (moving && now - lastMotion > 45)) {
                 previousDirection = value;
                 lastMotion = now;
                 sendMotion(value);

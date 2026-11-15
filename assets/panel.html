@@ -118,6 +118,7 @@ button:active{filter:brightness(1.2)}
 #map{background:radial-gradient(circle,#233a42,#101a20 75%)}
 #mapImage{border-color:#917d59;outline-color:#334c54}
 #feedback{border-color:#8a754f;border-radius:4px;box-shadow:0 4px 18px #0008}
+#vitals[hidden]{display:none}.gearSets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}.gearSets button{min-height:68px;padding:10px;text-align:left}.gearSets button span{display:block;color:var(--muted);font-size:11px;font-weight:400;margin-top:4px}.gearSets button.saved{border-color:#887755}.gearSets button.saved strong{color:var(--gold)}
 </style>
 
 <nav aria-label="Panels">
@@ -126,8 +127,9 @@ button:active{filter:brightness(1.2)}
 <button data-tab="chat"><img src="chat.svg" alt="">Chat</button>
 <button data-tab="macros"><img src="thumb-macro.webp" alt="">Macros</button>
 <button data-tab="controls"><img src="settings.webp" alt="">Controls</button>
+<button data-tab="sets"><img src="bag.webp" alt="">Sets</button>
 </nav>
-<div id="vitals"><div id="level">Level —</div><div class="meter"><b id="hp">HP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="mp">MP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="xp">EXP —</b><div class="track"><div class="fill"></div></div></div></div>
+<div id="vitals" hidden><div id="level">Level —</div><div class="meter"><b id="hp">HP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="mp">MP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="xp">EXP —</b><div class="track"><div class="fill"></div></div></div></div>
 <section id="sorts"><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="skillCategories" class="chips"></div><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
 <section id="map" hidden><p id="mapHint">Waiting for the game map…</p><img id="mapImage" alt="Kaldora map" hidden></section>
 <section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
@@ -166,6 +168,7 @@ button:active{filter:brightness(1.2)}
 <div class="tools"><button id="openGameMenu">Game menu</button></div>
 <div id="nativeControls" class="tools" hidden></div>
 </section>
+<section id="sets" hidden><div id="gearSets" class="gearSets"></div><div class="tools"><button id="editGearSets">Edit sets in game</button></div></section>
 <section id="menus" hidden><div id="npc" hidden></div><div class="tools"><button id="inventory">Bag</button><button id="pet">Pet</button><button id="bank">Storage</button></div><div id="bagTabs" class="tools"></div><div id="bagGrid"></div><p id="itemInfo"></p><div class="tools"><button id="moveItem" hidden>Move here</button><button id="clearItem" hidden>Cancel move</button></div></section>
 <div id="captureDialog" hidden role="dialog" aria-modal="true" aria-label="Record controller button"><div class="captureCard"><strong>Press a controller button</strong><p id="captureMessage">Release the button, then confirm.</p><div class="tools"><button id="captureConfirm" disabled>Confirm</button><button id="captureForce" hidden>Replace binding</button><button id="captureCancel">Cancel</button></div></div></div><output id="feedback" role="status"></output>
 <script>
@@ -493,6 +496,17 @@ function drawMacros(){
   b.title=s.name;b.setAttribute('aria-label',s.name);addIcon(b,s.icon);return b;
  }));
 }
+function drawGearSets(){
+ const sets=d.sets||[];
+ $('gearSets').replaceChildren(...sets.map((set,i)=>{
+  const b=btn('',()=>send('gear',i));
+  if(set.saved)b.classList.add('saved');
+  const title=document.createElement('strong');title.textContent=set.name;
+  const detail=document.createElement('span');detail.textContent=set.saved?([set.gear?'Gear':'',set.skills?'Skills':''].filter(Boolean).join(' · ')||'Saved'):'Tap to set up';
+  b.append(title,detail);return b;
+ }));
+}
+$('editGearSets').onclick=()=>send('gearEdit','');
 function drawBag(){
  const bag=d.inventory?.[group]||{};
  $('bagTabs').replaceChildren(...(bag.tabs||[]).map((t,i)=>btn(t.name,()=>send('bagTab',{group,index:i},clearItem),t.on)));
@@ -542,6 +556,7 @@ window.renderGame=state=>{
  });
  changed('macro',[d.realRows,d.catalog,d.buffRows],drawMacros);
  changed('bag',d.inventory,drawBag);
+ changed('sets',d.sets,drawGearSets);
  changed('npc',d.npc,npc=>{
   $('npc').hidden=!npc;$('npc').replaceChildren();
   if(!npc)return;
