@@ -138,6 +138,13 @@ button:active{filter:brightness(1.2)}
 .itemLine.up,.itemLine.stone-fx{color:#9ed5ad}
 .itemLine.down,.itemLine.req{color:#f0ae9d}
 .itemLine.hint{color:#a9bbc1}
+.socketGroup{clear:both;display:flex;align-items:flex-start;flex-wrap:wrap;gap:7px;margin:9px 0 6px;padding-top:8px;border-top:1px solid #334a50}
+.socketGroup .socket{display:flex;align-items:center;gap:6px;min-width:32px;max-width:100%;min-height:32px;padding:3px 6px;background:#16272d;border:1px solid #53676a;border-radius:5px}
+.socketGroup .socket.empty{width:32px;justify-content:center;background:#101b1f;border-style:dashed;color:#75888b}
+.socketGroup .socket img{float:none;width:25px;height:25px;margin:0;border:0;border-radius:3px;flex:0 0 auto}
+.socketGroup .socket span{font-size:11px;line-height:1.25;overflow-wrap:anywhere;color:#d3e2de}
+.socketGroup .socket.empty span{color:#75888b}
+
 </style>
 
 <nav aria-label="Panels">
@@ -557,11 +564,29 @@ function drawItemDetails(item){
  $('itemCards').replaceChildren(...item.cards.map(card=>{
   const container=document.createElement('article');container.className='itemCard';
   if(card.icon){const img=document.createElement('img');img.src=card.icon;img.alt='';container.append(img)}
+  let socketsShown=false;
+  const appendSockets=()=>{
+   if(socketsShown||!card.sockets?.length)return;
+   socketsShown=true;
+   const group=document.createElement('div');group.className='socketGroup';
+   group.setAttribute('aria-label','Item sockets');
+   for(const socket of card.sockets){
+    const el=document.createElement('div');el.className='socket'+(socket.filled?'':' empty');
+    if(socket.icon){const img=document.createElement('img');img.src=socket.icon;img.alt='';el.append(img)}
+    const label=document.createElement('span');
+    label.textContent=socket.filled?(socket.name||'Stone'):'○';
+    if(!socket.filled)el.setAttribute('aria-label','Empty socket');
+    el.append(label);group.append(el);
+   }
+   container.append(group);
+  };
   for(const line of card.lines){
    const el=document.createElement('div');el.className='itemLine';
    for(const kind of line.kind.split(/\s+/))if(['head','name','req','up','down','hint','gear-buff','stone-fx','combo-head','combo'].includes(kind))el.classList.add(kind);
-   el.textContent=line.text;container.append(el)
+   el.textContent=line.text;container.append(el);
+   if(line.kind.split(/\s+/).includes('name'))appendSockets();
   }
+  appendSockets();
   return container;
  }));
 }

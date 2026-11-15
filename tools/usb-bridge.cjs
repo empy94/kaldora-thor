@@ -21,10 +21,10 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===29){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===30){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:29,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:30,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -363,7 +363,17 @@ function view(install) {
           text:el.classList.contains('row')||el.classList.contains('name')?[...el.children].map(x=>x.textContent.trim()).filter(Boolean).join(el.classList.contains('row')?'  ':' '):el.textContent.trim()
         })).filter(line=>line.text);
         const art=value.id===item.id?slot.querySelector('img.icon'):[...document.querySelectorAll('#doll-slots [data-item]')].find(el=>el.dataset.item===String(value.id))?.querySelector('img.icon');
-        return {lines,icon:art?.src?.startsWith(location.origin+'/')?art.src:''};
+        const socketNodes=[...card.querySelectorAll('.stones > img,.stones > .stone')];
+        const names=Array.isArray(value.stones)?value.stones:[];
+        const sockets=socketNodes.map((node,index)=>{
+          const src=node.tagName==='IMG'?node.src:'';
+          return {
+            filled:index<names.length,
+            name:typeof names[index]==='string'?names[index]:'',
+            icon:src.startsWith(location.origin+'/')?src:''
+          };
+        });
+        return {lines,sockets,icon:art?.src?.startsWith(location.origin+'/')?art.src:''};
       };
       itemDetails={id:String(item.id),cards:[
         ...(equipped?[build(equipped,'Equipped',null,'')]:[]),
