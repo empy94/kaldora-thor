@@ -426,7 +426,7 @@ function view(install) {
     fullscreen:!!document.fullscreenElement,nativeMenu:window.__thor.menu(),bindings:window.__thor.bind,lastMacro:window.__thor.lastMacro,
     activeRow:typeof macroRow==='number'?String(macroRow):'',inventory,npc,catalog,realRows,select:window.__thor.select||0,focused:document.hasFocus(),level:txt('#level'),hp:txt('#hp-text'),mp:txt('#mp-text'),xp:txt('#exp-text'),
     bars:['hp','mp','exp'].map(k=>parseFloat(q('#'+k+'-fill')?.style.width)||0),
-    macro:!!q('#macro-on:not([hidden])'),map,
+    macro:q('#macro-on')?!q('#macro-on').hidden:null,map,
     macroRows:[...document.querySelectorAll('#t-rows [data-row]')].map(b=>{
       const row=Number(b.dataset.row);
       const line=q('#bar-rows')?.children[row];

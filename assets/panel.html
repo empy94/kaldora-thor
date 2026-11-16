@@ -163,13 +163,21 @@ section{padding:10px 12px;border-color:#405762}
 #controlGuide{padding:0 12px 8px;margin:0;gap:3px 12px}.guideRow{min-height:40px}.guideKey{min-width:48px}
 #controls>.tools:first-child{align-items:center}#controls>.tools:first-child label{color:#c7d8dc;font-weight:600}
 #controls>.tools:last-child button{min-height:44px}
+
+/* The real attack-macro state remains visible without taking another row. */
+nav button[data-tab="macros"]{display:flex;align-items:center;justify-content:center;gap:4px;min-width:0}
+nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
+.macroTabLabel{display:flex;flex-direction:column;align-items:center;min-width:0;line-height:1.05}
+.macroBadge{display:block;margin-top:3px;padding:1px 5px;border:1px solid #485f67;border-radius:3px;background:#142329;color:#a9bbc0;font-size:11px;line-height:1.1;white-space:nowrap}
+.macroBadge.on{color:#f2e8ca;border-color:#b59961;background:#4a3f29}
+.macroBadge.unknown{color:#7e9399;border-color:#384c53}
 </style>
 
 <nav aria-label="Panels">
 <button data-tab="sorts"><img src="skills.webp" alt="">Skills</button>
 <button data-tab="map"><img src="map.webp" alt="">Map</button>
 <button data-tab="chat"><img src="chat.svg" alt="">Chat</button>
-<button data-tab="macros"><img src="thumb-macro.webp" alt="">Macros</button>
+<button data-tab="macros" aria-label="Macros, status unavailable"><img src="thumb-macro.webp" alt=""><span class="macroTabLabel">Macros<span id="macroBadge" class="macroBadge" aria-hidden="true">—</span></span></button>
 <button data-tab="controls"><img src="settings.webp" alt="">Controls</button>
 <button data-tab="sets"><img src="bag.webp" alt="">Sets</button>
 </nav>
@@ -636,6 +644,11 @@ function changed(id,value,fn){const key=JSON.stringify(value);if(rendered[id]===
 $('effectsSetting').addEventListener('change',e=>send('effects',e.target.value));
 window.renderGame=state=>{
  d=state;
+ const badge=$('macroBadge'), macroActive=d.online&&d.macro===true;
+ const activeRow=macroActive&&Number.isInteger(Number(d.activeRow))&&d.activeRow!==''&&d.activeRow!=null&&Number(d.activeRow)>=0?Number(d.activeRow)+1:null;
+ badge.textContent=!d.online||d.macro==null?'—':macroActive?'ON'+(activeRow?' · '+activeRow:''):'OFF';
+ badge.classList.toggle('on',macroActive);badge.classList.toggle('unknown',!d.online||d.macro==null);
+ document.querySelector('[data-tab="macros"]').setAttribute('aria-label',!d.online||d.macro==null?'Macros, status unavailable':macroActive?'Macros, attack active'+(activeRow?', row '+activeRow:''):'Macros, attack off');
  if(document.activeElement!==$('effectsSetting')&&d.effects!=null)$('effectsSetting').value=d.effects;
  $('effectsSetting').disabled=!d.online;
  document.body.classList.remove('native-pad');
@@ -651,7 +664,7 @@ window.renderGame=state=>{
  if(!d.online){restored=false;lastSelect=null;mapRequested=false}
  if(d.online&&!pending&&!same(d.bindings,activeBindings())&&Date.now()-(restored||0)>2000){restored=Date.now();send('bind',activeBindings())}
  const status=$('macroState');
- status.textContent=d.online?(d.activeRow!==''&&d.activeRow!=null&&+d.activeRow>=0?'Row '+(+d.activeRow+1)+' active':''):'USB link unavailable';
+ status.textContent=d.online?(d.macro===true?(activeRow?'Attack macro · Row '+activeRow+' ON':'Attack macro ON'):d.macro===false?'Attack macro OFF':''):'USB link unavailable';
  if(d.lastMacro&&!d.lastMacro.ok&&Date.now()-d.lastMacro.at<2200)status.textContent='Row '+(+d.lastMacro.row+1)+' did not start. Check its slots.';
  if(d.online&&lastSelect!==null&&d.select!==lastSelect)toggleNav();
  lastSelect=d.online?d.select:null;
