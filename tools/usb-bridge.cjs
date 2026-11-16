@@ -21,10 +21,10 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===37){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===38){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:37,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:38,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -137,16 +137,16 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
           source.dispatchEvent(new DragEvent('dragend',{bubbles:true,cancelable:true,dataTransfer:transfer}));
         }
       }else if(!dragMoved&&source.isConnected){
-        const isItem=!!item&&!!source.closest('#inv-grid,#pet-grid,#cash-grid');
+        const isItem=!!item&&(!!source.closest('#inv-grid,#pet-grid,#cash-grid')||(typeof source.ondblclick==='function'&&!!source.closest('#bank-grid,#doll-slots')));
         const now=Date.now();
-        const repeated=isItem&&lastItemTap?.id===item&&lastItemTap.grid===source.parentElement.id&&now-lastItemTap.at<=650;
+        const repeated=isItem&&lastItemTap?.id===item&&lastItemTap.grid===source.parentElement&&now-lastItemTap.at<=650;
         if(isItem&&now-dragStartedAt>=700){
           lastItemTap=null;
         }else if(repeated){
           lastItemTap=null;
           source.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,cancelable:true,detail:2}));
         }else{
-          lastItemTap=isItem?{id:item,grid:source.parentElement.id,at:now}:null;
+          lastItemTap=isItem?{id:item,grid:source.parentElement,at:now}:null;
           source.click();
         }
       }
@@ -439,7 +439,13 @@ function view(install) {
       };
       const pending=window.__thor.lockPending;
       if(pending?.id===String(item.id)&&(!!item.locked!==pending.expected||Date.now()>=pending.until))window.__thor.lockPending=null;
-      itemDetails={id:String(item.id),locked:!!item.locked,lockPending:window.__thor.lockPending?.id===String(item.id),cards:[
+      const parts={2:'armour',3:'helmet',4:'gloves',5:'gloves',6:'leggings',7:'boots',9:'shield',10:'weapon',11:'ring',12:'ring',13:'necklace'};
+      const part=parts[item.part];
+      const socketOptions=part&&inv.items.includes(item)&&item.sockets>(item.stones||[]).length?inv.items.filter(x=>!x.equipped&&!x.shop&&!x.bank&&!x.trade&&x.count>0&&x.conv===2&&/^Fits:\s*/i.test(x.fx||'')&&(x.fx||'').slice(5).split(',').some(v=>v.trim().toLowerCase()===part)).map(x=>{
+        const art=icon('item',x.tid)?.src||'',risk=typeof stoneRisk==='function'?stoneRisk(x,item):null;
+        return {id:String(x.id),name:x.name,count:x.count,icon:art.startsWith(location.origin+'/')?art:'',description:(x.opts||[]).join(' · '),risk:risk?{chance:risk.chance||'',note:risk.note||''}:null};
+      }):[];
+      itemDetails={id:String(item.id),locked:!!item.locked,lockPending:window.__thor.lockPending?.id===String(item.id),socketOptions,socketSupported:!!part&&inv.items.includes(item),cards:[
         ...(equipped?[build(equipped,'Equipped',null,'')]:[]),
         build(item,equipped?'This item':'',equipped,slot.dataset.hint)
       ]};
@@ -505,6 +511,13 @@ function action(a) {
   if(a.type==='combat')return window.__thor?.combat(a.value)||false;
   if(a.type==='combo'){if(window.__thor?.menu()&&window.__thor?.bind[a.value]?.value!=='itemLock')return false;return window.__thor?.performBinding(a.value)||false}
   if(a.type==='itemLock')return window.__thor?.toggleItemLock(a.value.id,a.value.locked)||false;
+  if(a.type==='socketInsert'){
+    if(typeof inv==='undefined'||typeof socketStone!=='function')return false;
+    const item=inv.items.find(x=>String(x.id)===a.value.item),stone=inv.items.find(x=>String(x.id)===a.value.stone);
+    const parts={2:'armour',3:'helmet',4:'gloves',5:'gloves',6:'leggings',7:'boots',9:'shield',10:'weapon',11:'ring',12:'ring',13:'necklace'},part=parts[item?.part];
+    if(!item||!stone||window.__thor?.selectedItem?.()?.dataset.item!==String(item.id)||!part||item.sockets<=(item.stones||[]).length||stone.equipped||stone.shop||stone.bank||stone.trade||stone.count<=0||stone.conv!==2||!/^Fits:\s*/i.test(stone.fx||'')||!stone.fx.slice(5).split(',').some(x=>x.trim().toLowerCase()===part))return false;
+    return socketStone(stone,item);
+  }
   if(a.type==='potionAssign'){
     if(typeof inv==='undefined'||typeof bar==='undefined'||!Array.isArray(inv?.items)||!Array.isArray(bar?.potions))return false;
     const {slot,id}=a.value;
@@ -632,6 +645,7 @@ function valid(a) {
   if(a.type==='nativePad')return Number.isInteger(a.value)&&a.value>=0&&a.value<=15;
   if(a.type==='combo')return typeof a.value==='string'&&/^(?:[4-6]|A[3-6]|C4_[0-35-7]|L1|L3|R3|START|SELECT|UP|DOWN|LEFT|RIGHT)$/.test(a.value);
   if(a.type==='itemLock')return !!a.value&&digits(a.value.id)&&typeof a.value.locked==='boolean';
+  if(a.type==='socketInsert')return !!a.value&&digits(a.value.item)&&digits(a.value.stone);
   if(a.type==='effects')return ['0','1','2'].includes(String(a.value));
   if(a.type==='nav')return ['start','back','left','right','up','down','accept','downAccept','upAccept'].includes(a.value);
   if(a.type==='combat')return ['target','attack'].includes(a.value);
