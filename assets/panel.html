@@ -829,10 +829,24 @@ function drawPotionOptions(){
 }
 let rendered={};
 function changed(id,value,fn){const key=JSON.stringify(value);if(rendered[id]===key)return;rendered[id]=key;fn(value)}
-$('effectsSetting').addEventListener('change',e=>send('effects',e.target.value));
+let effectsSession=null, effectsAttempt=0;
+$('effectsSetting').addEventListener('change',e=>{
+ const value=e.target.value;
+ send('effects',value,()=>{savePanelPreference('effects',value);effectsSession=d.chatActivity?.session||null});
+});
 window.renderGame=state=>{
  d=state;
  observeChat(d.chatActivity);
+ if(d.online&&panelPreferences.effects==null&&['0','1','2'].includes(String(d.effects)))savePanelPreference('effects',String(d.effects));
+ const effectsValue=String(panelPreferences.effects??'');
+ const session=d.chatActivity?.session;
+ if(d.online&&session&&session!==effectsSession&&['0','1','2'].includes(effectsValue)&&d.effects!=null){
+  if(String(d.effects)===effectsValue)effectsSession=session;
+  else if(!pending&&Date.now()-effectsAttempt>2500){
+   effectsAttempt=Date.now();
+   send('effects',effectsValue,()=>{effectsSession=session});
+  }
+ }
  const badge=$('macroBadge'), macroActive=d.online&&d.macro===true;
  const activeRow=macroActive&&Number.isInteger(Number(d.activeRow))&&d.activeRow!==''&&d.activeRow!=null&&Number(d.activeRow)>=0?Number(d.activeRow)+1:null;
  badge.textContent=!d.online||d.macro==null?'—':macroActive?'ON'+(activeRow?' · '+activeRow:''):'OFF';

@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="eu.kaldorathor.firefoxexp" android:versionCode="6" android:versionName="0.2.4">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="eu.kaldorathor.firefoxexp" android:versionCode="7" android:versionName="0.2.5">
   <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="35" />
   <uses-permission android:name="android.permission.INTERNET" />
   <queries><package android:name="org.mozilla.firefox" /><package android:name="com.android.vending" /></queries>
