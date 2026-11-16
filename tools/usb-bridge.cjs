@@ -61,24 +61,27 @@ function inputs() {
       return {row,linked,canToggle:linked||!reason,reason,expected:flags};
     });
   };
-  const menuSelectors=['#npc-menu','#menu-win','#inventory','#petbag','#bank','#skills','#macro-win','#missions','#character'];
+  const menuSelectors=['#npc-menu','#menu-win','#inventory','#shop','#petbag','#bank','#skills','#macro-win','#missions','#character'];
   const visible=x=>x&&x.getClientRects().length&&getComputedStyle(x).visibility!=='hidden';
+  let highlighted, dragSource, dragItem, dragMoved=false, anchor, dragStartedAt=0, lastItemTap=null;
+  const panels=()=>[...document.querySelectorAll('.panel.show,[role="dialog"].show')]
+    .filter(x=>visible(x)&&!x.closest('[hidden]'));
   const panel=()=>{
     const dialogs=[...document.querySelectorAll('dialog[open],[role="dialog"][aria-modal="true"]')]
       .filter(x=>visible(x)&&!x.closest('[hidden]'));
     if(dialogs.length)return dialogs[dialogs.length-1];
-    return [...document.querySelectorAll('.panel.show,[role="dialog"].show')]
-      .filter(x=>visible(x)&&!x.closest('[hidden]'))
+    const available=panels();
+    const selected=available.find(x=>highlighted&&x.contains(highlighted));
+    return selected || available
       .sort((a,b)=>(parseInt(getComputedStyle(b).zIndex)||0)-(parseInt(getComputedStyle(a).zIndex)||0))[0]
       ||menuSelectors.map(s=>document.querySelector(s)).find(x=>x?.classList.contains('show')&&visible(x));
   };
   const buttons=p=>{
-    const list=[...p.querySelectorAll('button,[role=button],select,input:not([type=hidden]),textarea,.skill-card,[draggable=true],[onclick],[tabindex]:not([tabindex="-1"]),#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot,#inv-trash,#pet-trash,#cash-trash,#mw-rows .skill,#mw-skills .skill')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
+    const list=[...p.querySelectorAll('button,[role=button],select,input:not([type=hidden]),textarea,.skill-card,[draggable=true],[onclick],[tabindex]:not([tabindex="-1"]),#shop-list .row,#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot,#inv-trash,#pet-trash,#cash-trash,#mw-rows .skill,#mw-skills .skill')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
     return list.sort((a,b)=>Number(a.matches('.close,[data-close]'))-Number(b.matches('.close,[data-close]')));
   };
   const ownedItem=id=>(typeof inv!=='undefined'&&inv?.items?.find(x=>String(x.id)===String(id)))||(typeof bankItems!=='undefined'&&bankItems?.find(x=>String(x.id)===String(id)))||null;
   const lockedSlot=node=>!!(node?.dataset?.item&&ownedItem(node.dataset.item)?.locked);
-  let highlighted, dragSource, dragItem, dragMoved=false, anchor, dragStartedAt=0, lastItemTap=null;
   const anchors=new WeakMap();
   function highlight(next){
     if(highlighted===next)return;
@@ -183,7 +186,9 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     const center=x=>{const r=x.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2]};
     const [x,y]=center(highlighted);
     let best=null,score=Infinity;
-    for(const candidate of list){
+    const modal=current.matches('dialog[open],[role="dialog"][aria-modal="true"]');
+    const candidates=modal?list:[...new Set(panels().flatMap(buttons))];
+    for(const candidate of candidates){
       if(candidate===highlighted)continue;
       const [cx,cy]=center(candidate), along=(horizontal?cx-x:cy-y)*sign, across=Math.abs(horizontal?cy-y:cx-x);
       if(along<=3)continue;
