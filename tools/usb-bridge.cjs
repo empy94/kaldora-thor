@@ -21,10 +21,25 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===38){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===39){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:38,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:39,until:Date.now()+4000,held:new Map(),bind:{}};
+  // Kaldora uses part 9 for both shields and off-hand weapons. Its own
+  // drawDoll / stoneRisk code identifies a weapon by positive max damage.
+  state.socketGearType=item=>{
+    if(!item||!Number.isInteger(item.part))return null;
+    if(item.part===9){
+      const damage=item.st?.dmax;
+      return typeof damage==='number'&&Number.isFinite(damage)&&damage>=0?(damage>0?'weapon':'shield'):null;
+    }
+    return ({2:'armour',3:'helmet',4:'gloves',5:'gloves',6:'leggings',7:'boots',10:'weapon',11:'ring',12:'ring',13:'necklace'})[item.part]||null;
+  };
+  state.socketCompatible=(item,stone)=>{
+    const part=state.socketGearType(item);
+    if(!part||!stone||stone.equipped||stone.shop||stone.bank||stone.trade||!(stone.count>0)||stone.conv!==2||!/^Fits:\s*/i.test(stone.fx||''))return false;
+    return stone.fx.slice(5).split(',').some(value=>value.trim().toLowerCase()===part);
+  };
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -439,9 +454,8 @@ function view(install) {
       };
       const pending=window.__thor.lockPending;
       if(pending?.id===String(item.id)&&(!!item.locked!==pending.expected||Date.now()>=pending.until))window.__thor.lockPending=null;
-      const parts={2:'armour',3:'helmet',4:'gloves',5:'gloves',6:'leggings',7:'boots',9:'shield',10:'weapon',11:'ring',12:'ring',13:'necklace'};
-      const part=parts[item.part];
-      const socketOptions=part&&inv.items.includes(item)&&item.sockets>(item.stones||[]).length?inv.items.filter(x=>!x.equipped&&!x.shop&&!x.bank&&!x.trade&&x.count>0&&x.conv===2&&/^Fits:\s*/i.test(x.fx||'')&&(x.fx||'').slice(5).split(',').some(v=>v.trim().toLowerCase()===part)).map(x=>{
+      const part=window.__thor.socketGearType?.(item);
+      const socketOptions=part&&inv.items.includes(item)&&item.sockets>(item.stones||[]).length?inv.items.filter(x=>window.__thor.socketCompatible(item,x)).map(x=>{
         const art=icon('item',x.tid)?.src||'',risk=typeof stoneRisk==='function'?stoneRisk(x,item):null;
         return {id:String(x.id),name:x.name,count:x.count,icon:art.startsWith(location.origin+'/')?art:'',description:(x.opts||[]).join(' · '),risk:risk?{chance:risk.chance||'',note:risk.note||''}:null};
       }):[];
@@ -514,8 +528,7 @@ function action(a) {
   if(a.type==='socketInsert'){
     if(typeof inv==='undefined'||typeof socketStone!=='function')return false;
     const item=inv.items.find(x=>String(x.id)===a.value.item),stone=inv.items.find(x=>String(x.id)===a.value.stone);
-    const parts={2:'armour',3:'helmet',4:'gloves',5:'gloves',6:'leggings',7:'boots',9:'shield',10:'weapon',11:'ring',12:'ring',13:'necklace'},part=parts[item?.part];
-    if(!item||!stone||window.__thor?.selectedItem?.()?.dataset.item!==String(item.id)||!part||item.sockets<=(item.stones||[]).length||stone.equipped||stone.shop||stone.bank||stone.trade||stone.count<=0||stone.conv!==2||!/^Fits:\s*/i.test(stone.fx||'')||!stone.fx.slice(5).split(',').some(x=>x.trim().toLowerCase()===part))return false;
+    if(!item||!stone||window.__thor?.selectedItem?.()?.dataset.item!==String(item.id)||!inv.items.includes(item)||item.sockets<=(item.stones||[]).length||!window.__thor?.socketCompatible?.(item,stone))return false;
     return socketStone(stone,item);
   }
   if(a.type==='potionAssign'){
