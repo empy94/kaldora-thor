@@ -607,7 +607,7 @@ function drawSkills(slots){
    const line=document.createElement('div');line.className='row';
    for(const x of shown.slice(i,i+4)){
     const b=btn('',()=>{
-     if(pickSkill){selectedSkill=skillIdentity(x);const assigned=Object.keys(skillBindings).find(k=>matchesSkill(x,skillBindings[k].value));if(assigned)$('skillBind').value=assigned;drawSkills(d.slots||[]);notice(assigned?'Current binding selected':'Choose a controller button, then Bind')}
+     if(pickSkill){selectedSkill=skillIdentity(x);const assigned=Object.keys(skillBindings).find(k=>matchesSkill(x,skillBindings[k].value));if(assigned)$('skillBind').value=assigned;drawSkills(d.slots||[]);beginCapture('skill')}
      else send('spell',x.id,()=>{b.classList.add('castFlash');setTimeout(()=>b.classList.remove('castFlash'),230)});
     });
     b.className='slot';

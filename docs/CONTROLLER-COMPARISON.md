@@ -12,7 +12,7 @@ This is a player example and a proposal, not a requirement to replace everyone's
 | L2 | Basic attack | Start a normal attack on the selected target. |
 | R1 | Macro row 2 | Trigger the player's buff row. |
 | R2 | Macro row 1 | Toggle the player's attack macro. |
-| X | A saved skill | The previous save used a temporary skill instance ID; that ID changed after reconnecting, so its identity cannot safely be recovered and the player must rebind it. |
+| X | Acrobatic Charge | The player selected it again and confirmed X casts it. The new binding stores the stable skill template ID. The earlier instance-only ID could not be safely identified after reconnecting. |
 
 The game currently marks row 1 as the attack row and row 2 as the buff row. These are the player's observed rows, not universal defaults. Its new native chain links two adjacent eligible rows, not twenty slots inside a single row. In this profile, row 1 cannot link to row 2 while row 2 is reserved for buffs; a player must choose a different arrangement explicitly. A buff or item row must not be silently repurposed.
 
@@ -38,6 +38,12 @@ In the native-controller preview, the browser received the physical left stick a
 A separate experimental Android window-focus approach produced an ANR for `eu.kaldorathor/.Companion`, reason: input dispatch timed out because the application had no focused window. That approach was removed from the custom build. Both screens need physical-device testing, including moving the left stick immediately after touching the lower screen and typing in chat.
 
 The user prefers the companion's input ownership and binding workflow while the native system matures. The custom compatibility build intentionally retains the original companion bindings and intercepts their assigned buttons while allowing unassigned buttons to reach the updated native system. That is a temporary compatibility approach, not the requested eventual native-only architecture. Once the game provides equivalent controls and a stable interface, the bridge should relinquish input ownership, avoid duplicate actions, and display the game's own bindings. No official panel API has been delivered yet.
+
+## Current verification on the AYN Thor
+
+- With the custom compatibility preview, the player reported that movement, camera after touching the lower screen, and R1/R2 worked in an initial physical test. After the final skill-binding UI fix, the player confirmed that the recording dialog opened and X cast Acrobatic Charge. The bridge showed that X was stored using a template ID and both macro bindings remained present.
+- The prior non-focusable-window preview produced a confirmed Android ANR and was removed. No new ANR was observed in the inspected recent logs after returning to the original focus approach; this is not a prolonged stability test.
+- The game reported all three adjacent row links inactive. This profile currently reserves the next rows for buffs or items, so a 20-skill linked macro could not be exercised without changing the player's arrangement. No live linked combat execution or post-reconnect persistence test has been claimed.
 
 ## Validation checklist
 
