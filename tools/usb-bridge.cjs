@@ -26,9 +26,20 @@ function inputs() {
   if(window.__thor)window.__thor.until=0;
   const state=window.__thor={version:'native-preview-1',mapOwned:false};
   // No gamepad wrapping, keyboard listeners, event simulation or input polling.
-  state.menu=()=>[...document.querySelectorAll('.panel.show,[role="dialog"].show,dialog[open]')].find(x=>x.getClientRects().length)?.id||'';
-  // A native selection signal is not specified yet. Avoid showing a stale item.
-  state.selectedItem=()=>null;
+  const front=()=>[...document.querySelectorAll('.window.show,#inventory.show,#settings.show,dialog[open]')].filter(x=>x.getClientRects().length).sort((a,b)=>(parseInt(getComputedStyle(b).zIndex)||0)-(parseInt(getComputedStyle(a).zIndex)||0))[0]||null;
+  state.menu=()=>front()?.id||'';
+  // Read only the native focus or touch selection in the active window.
+  state.selectedItem=()=>{const root=front();if(!root)return null;const selectors='#inv-grid .slot[data-item],#pet-grid .slot[data-item],#bank-grid .slot[data-item],#cash-grid .slot[data-item],#doll-slots .equip-slot[data-item]';const candidates=[...root.querySelectorAll(selectors)].filter(x=>x.getClientRects().length);return candidates.find(x=>x.classList.contains('pad-nav'))||candidates.find(x=>x.classList.contains('pick'))||null};
+  state.chainInfo=()=>{
+    if(typeof bar==='undefined'||!bar||typeof macroSpan!=='function'||typeof rowHasItems!=='function'||typeof ITEM_ROW!=='number')return null;
+    const flags=Number(bar.chain)||0;
+    return [0,1,2].map(row=>{
+      const next=row+1,buffs=[bar.bRow??1,bar.bRow2??-1],linked=macroSpan(row).length>1;
+      const sourceBuff=buffs.includes(row),targetBuff=buffs.includes(next),itemRow=next===ITEM_ROW,items=rowHasItems(next);
+      const reason=sourceBuff?'This row is a buff row.':targetBuff?'The next row is reserved for buffs.':itemRow?'The next row is reserved for items.':items?'The next row contains items.':'';
+      return {row,linked,canToggle:linked||!reason,reason,expected:flags};
+    });
+  };
   state.socketGearType=item=>{
     if(!item||!Number.isInteger(item.part))return null;
     if(item.part===9){const n=item.st?.dmax;return typeof n==='number'&&Number.isFinite(n)&&n>=0?(n>0?'weapon':'shield'):null}
@@ -137,7 +148,7 @@ function view(install,parseNative) {
   const sets=typeof gearSets!=='undefined'&&Array.isArray(gearSets)?
     Array.from({length:4},(_,i)=>{const set=gearSets[i];return {name:set?.n||'Set '+(i+1),saved:!!set,gear:!!set?.g,skills:!!set?.b}}):null;
   return {online:true,potions,effects:typeof settings!=='undefined'?String(settings.effects):null,sets,itemDetails,pressed:[],lastPress:null,
-    nativePad:nativeSettings.available,nativePadMap:[],nativeSettings,
+    nativePad:nativeSettings.available,nativePadMap:[],nativeSettings,macroChains:window.__thor.chainInfo?.(),
     buffRows:typeof bar!=='undefined'&&bar?[bar.bRow??1,bar.bRow2??-1]:[],attackRow:typeof bar!=='undefined'&&bar?bar.mRow??0:null,
     fullscreen:!!document.fullscreenElement,nativeMenu:window.__thor.menu(),bindings:{},lastMacro:null,
     activeRow:typeof macroRow==='number'?String(macroRow):'',inventory,npc,catalog,realRows,select:window.__thor.select||0,focused:document.hasFocus(),level:txt('#level'),hp:txt('#hp-text'),mp:txt('#mp-text'),xp:txt('#exp-text'),
@@ -232,6 +243,19 @@ function action(a) {
     for(const name of ['display','opacity','pointer-events'])root.style.removeProperty(name);
     return true;
   }
+  if(a.type==='macroChain'){
+    if(typeof bar==='undefined'||!bar||!window.__thor?.chainInfo)return false;
+    const {row,expected}=a.value,info=window.__thor.chainInfo()?.find(x=>x.row===row);
+    if(!info||info.expected!==expected||!info.canToggle)return false;
+    const win=q('#macro-win'),open=q('#macro-btn');if(!win||!open)return false;
+    const wasOpen=win.classList.contains('show');
+    try{
+      if(!wasOpen)open.click();
+      const button=q('#mw-rows .mw-chain[data-row="'+row+'"]');
+      if(!win.classList.contains('show')||!button||button.disabled||typeof button.onclick!=='function')return false;
+      button.click();return (Number(bar.chain)||0)===(expected^(1<<row));
+    }finally{if(!wasOpen&&win.classList.contains('show'))open.click()}
+  }
   if(a.type==='macroSwap'){
     const {row,from,to,expectedFrom,expectedTo}=a.value;
     if(typeof bar==='undefined'||!bar||typeof BAR_COLS==='undefined'||typeof dropOnSlot!=='function')return false;
@@ -253,6 +277,7 @@ function action(a) {
     const x=[...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===a.value&&!x.classList.contains('nomp'));
     if(!x)return false;x.click();return true;
   }
+  if(a.type==='macroOnce'){const row=Number(a.value);if(typeof bar==='undefined'||!bar||typeof macroOnce!=='function'||typeof macroIds!=='function'||row===(bar.bRow??1)||row===(bar.bRow2??-1)||!macroIds(row).length)return false;macroOnce(row);return true}
   if(a.type==='macro'){if(typeof toggleMacro!=='function')return false;toggleMacro(Number(a.value));return true}
   if(a.type==='buff'){
     const b=q('#t-buffs');
@@ -281,6 +306,7 @@ function valid(a) {
   if(a.type==='socketInsert')return !!a.value&&digits(a.value.item)&&digits(a.value.stone);
   if(a.type==='effects')return ['0','1','2'].includes(String(a.value));
   if(a.type==='macroSlot')return a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<4&&Number.isInteger(a.value.slot)&&a.value.slot>=0&&a.value.slot<10&&Number.isInteger(a.value.tid)&&a.value.tid>=0&&Number.isInteger(a.value.expected)&&a.value.expected>=0;
+  if(a.type==='macroChain')return !!a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<3&&Number.isInteger(a.value.expected)&&a.value.expected>=0&&a.value.expected<=7;
   if(a.type==='macroSwap')return a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<4&&['from','to'].every(k=>Number.isInteger(a.value[k])&&a.value[k]>=0&&a.value[k]<10)&&['expectedFrom','expectedTo'].every(k=>Number.isSafeInteger(a.value[k]));
   if(a.type==='potionAssign')return a.value&&Number.isInteger(a.value.slot)&&a.value.slot>=0&&a.value.slot<=1&&digits(a.value.id);
   if(a.type==='gear')return Number.isInteger(a.value)&&a.value>=0&&a.value<4;
@@ -291,6 +317,7 @@ function valid(a) {
   if(a.type==='bagTab')return a.value&&['inv','pet','bank'].includes(a.value.group)&&Number.isInteger(a.value.index)&&a.value.index>=0&&a.value.index<8;
   if(a.type==='mapView'||a.type==='mapRestore')return true;
   if(a.type==='spell')return digits(a.value);
+  if(a.type==='macroOnce')return row(a.value);
   if(a.type==='macro')return row(a.value);
   if(a.type==='buff')return true;
   if(a.type==='chat')return typeof a.value==='string'&&a.value.trim()&&a.value.length<=120&&!/[\r\n]/.test(a.value);

@@ -1,4 +1,4 @@
-> **Experimental native-controller preview**: this branch targets an upcoming Kaldora update and is not the stable 0.21 custom-controller release. It does not migrate or overwrite bindings. The current public game may not expose the new settings. Physical two-display input and selection-based item details are unverified or unavailable. To restore the stable app without clearing data, use the 0.21 Stable Recovery APK and the v0.21 bridge. An official API is not yet available.
+> **Experimental native-controller preview**: this branch targets an upcoming Kaldora update and is not the stable 0.21 custom-controller release. It does not migrate or overwrite bindings. Native settings may be unavailable until saved by the game. Physical two-display input and native-selection item details remain unverified. The companion does not migrate old custom bindings or provide its former item-lock button. To restore the previous app without clearing data, use the version-code 25 0.21 Stable Recovery APK and the v0.21 bridge; the previous bridge may conflict with the updated game. An official API is not yet available.
 
 # Kaldora Thor
 

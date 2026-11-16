@@ -10,10 +10,10 @@ The stable game API mentioned by the developer is planned, not supplied. Existin
 
 ## Migration blockers and regression risks
 
-- On 2026-11-16 the public game page still included `pad.map`, the old binding model. The developer described the change as upcoming. A textual check of a page is only a clue, not a version guarantee.
+- On 2026-11-16 the public game added `pad.bind`, `.pad-nav`, native macro chaining and the once-only macro action. Native input and second-screen focus still require physical-device verification.
 - `Companion.java` currently consumes Android gamepad key and joystick events when its second-screen activity has focus. Removing bridge forwarding alone can leave Chrome without those events after the lower screen is touched. Confirm Android focus and the developer's native implementation on the physical AYN Thor, including return to gamepad after touch; do not assume the browser can see input handled by a separate activity.
 - The lower-screen interface sends bridge navigation, binding and lock actions, and automatically restores old bindings. These controls need an intentional read-only or native-game replacement, not just deletion of bridge handlers. The developer requires native bindings never be written by the companion.
-- The selected-item details, socket selection, map and other panel actions depend on existing page internals and the old injected state. A supported native selected-item signal has not yet been supplied; the preview does not show selected-item details or offer socket insertion and lock from that view. Determine a supported signal and preserve confirmation and safety checks before calling this feature complete.
+- The selected-item details, socket selection, map and other panel actions depend on existing page internals and the old injected state. The preview reads the native `.pad-nav` and `.pick` DOM markers for selected-item details and socket confirmation; these are undocumented page internals, not a stable API, and still require physical-device verification. Companion item-lock input is removed as requested; use the native game controller binding.
 - The old `pad.map` and even `pad` variable cannot be used for the new controller model. The contract parser deliberately does not inspect them. The game may also change other undocumented page internals during the update.
 - The controller may already have saved user settings. Do not overwrite them, clear app data, or change the installed package for an untested build.
 

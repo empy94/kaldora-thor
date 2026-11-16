@@ -200,6 +200,7 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 @media(max-width:420px){#potionOptions{grid-template-columns:1fr}.potionQuick .potionName{font-size:11px}}
 
 /* Native-controller preview: the game owns bindings; controls are read-only. */
+#chainTools[hidden]{display:none}
 #skillPick,#recordSkill,#clearSkill,#recordMacro,#unbindMacro,#openGameMenu,#resetAllControls,#confirmResetControls,#controllerAssign,#itemLock,#nativeControls{display:none!important}
 .nativeHint{display:block!important;color:#c7d7da;font-size:12px;margin:4px 0 8px}
 </style>
@@ -217,7 +218,7 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 <section id="sorts"><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller. Native support is pending.</p><div id="skillCategories" class="chips"></div><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
 <section id="map" hidden><p id="mapHint">Waiting for the game map…</p><img id="mapImage" alt="Kaldora map" hidden></section>
 <section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
-<section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller. Native support is pending.</p><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
+<section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller. Native support is pending.</p><div id="macroRows" class="tools"></div><div id="chainTools" class="tools" hidden><button id="chainRow" type="button"></button><span id="chainHint" style="font-size:12px;color:#b3c9cf"></span></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button><button id="runMacroOnce">Attack once</button></div><p id="macroState"></p></section>
 <section id="controls" hidden>
 <div class="tools"><label for="effectsSetting">Effects</label><select id="effectsSetting" aria-label="Effects"><option value="0">Off</option><option value="1">Minimal</option><option value="2">Full</option></select></div>
 <div class="controller">
@@ -549,6 +550,7 @@ $('applySkillConfirm').onclick=()=>{if(!skillChoice||skillChoice.row!==row||skil
 $('pickMacroSkill').onclick=()=>{pickMacro=!pickMacro;drawMacros()};
 $('clearMacroSlot').onclick=()=>setMacroSlot(0);
 $('runMacro').onclick=()=>send('macro',String(row));
+$('runMacroOnce').onclick=()=>send('macroOnce',String(row),()=>notice('Attack requested'));
 
 let itemSource='',itemTarget=-1;
 function clearItem(){itemSource='';itemTarget=-1;$('itemInfo').textContent='';drawBag()}
@@ -616,6 +618,9 @@ function drawMacros(){
  $('macroRows').replaceChildren(...Array.from({length:4},(_,i)=>btn(
   'Row '+(i+1)+(attackRow===i?' · Attack':'')+(buffRows.includes(i)?' · Buff':'')+(Object.entries(d.nativeSettings?.bindings||{}).filter(([,v])=>v==='m:'+i).map(([k])=>' · '+(nativeButtonNames[Number(k)]||k)).join('')),
   ()=>{row=i;macroSlot=0;pickMacro=false;closeSkillConfirm();updateChoices(true);drawMacros()},i===row)));
+ $('runMacroOnce').disabled=buffRows.includes(row)||!d.online;
+ const chain=d.macroChains?.find(x=>x.row===row);$('chainTools').hidden=!chain;
+ if(chain){const button=$('chainRow');button.disabled=!chain.canToggle;button.textContent=(chain.linked?'Unlink':'Link')+' Row '+(row+1)+' + '+(row+2);button.setAttribute('aria-pressed',String(chain.linked));$('chainHint').textContent=chain.reason|| (chain.linked?'Rows run together':'Up to 20 skills');button.onclick=()=>send('macroChain',{row,expected:chain.expected},()=>notice(chain.linked?'Rows unlinked':'Rows linked'))}
  const skills=d.catalog||[], slots=d.realRows?.[row]||[];
  $('macroSlots').replaceChildren(...slots.map((s,i)=>{
   const skill=skills.find(k=>k.tid===s.tid);let pointer=null,suppressClick=false;
@@ -792,7 +797,7 @@ window.renderGame=state=>{
   $('chatLog').replaceChildren(...m.map(x=>{const el=document.createElement('div');el.textContent=x.text;el.style.color=x.color;return el}));
   $('chatLog').scrollTop=$('chatLog').scrollHeight;
  });
- changed('macro',[d.realRows,d.catalog,d.buffRows,d.attackRow],drawMacros);
+ changed('macro',[d.realRows,d.catalog,d.buffRows,d.attackRow,d.macroChains],drawMacros);
  changed('bag',d.inventory,drawBag);
  changed('sets',d.sets,drawGearSets);
  changed('itemDetails',d.itemDetails,drawItemDetails);
