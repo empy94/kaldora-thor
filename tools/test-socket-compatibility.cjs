@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const source = fs.readFileSync(require('node:path').join(__dirname, 'usb-bridge.cjs'), 'utf8');
+const source = fs.readFileSync(require('node:path').join(__dirname, 'game-adapter.cjs'), 'utf8');
 const start = source.indexOf('  state.socketGearType=item=>{');
 const end = source.indexOf('  state.runMacro=(row)=>{', start);
 assert(start >= 0 && end > start, 'socket rules missing');

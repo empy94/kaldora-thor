@@ -1,8 +1,8 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="eu.kaldorathor.firefoxexp" android:versionCode="5" android:versionName="0.2.3-firefox-preview">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="eu.kaldorathor.firefoxexp" android:versionCode="6" android:versionName="0.2.4">
   <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="35" />
   <uses-permission android:name="android.permission.INTERNET" />
   <queries><package android:name="org.mozilla.firefox" /><package android:name="com.android.vending" /></queries>
-  <application android:label="Kaldora Thor Firefox Test" android:icon="@drawable/kaldora" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false" android:networkSecurityConfig="@xml/network_security">
+  <application android:label="Kaldora Thor" android:icon="@drawable/kaldora" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false" android:networkSecurityConfig="@xml/network_security">
     <activity android:name="eu.kaldorathor.Launcher" android:exported="true" android:screenOrientation="landscape">
       <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
     </activity>

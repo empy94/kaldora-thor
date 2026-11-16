@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const source=fs.readFileSync(require('node:path').join(__dirname,'usb-bridge.cjs'),'utf8');
+const source=fs.readFileSync(require('node:path').join(__dirname,'game-adapter.cjs'),'utf8');
 const fragment=source.slice(source.indexOf('function action(a) {'),source.indexOf('let snapshot, currentPage;'));
 const bar={slots:Array(50).fill(0),mRow:0,bRow:1,bRow2:-1};
 let saved=0;

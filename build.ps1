@@ -8,7 +8,6 @@ if ($PublicRelease) {
   $assetDir = Join-Path $out ('release-assets-' + [Guid]::NewGuid().ToString('N'))
   New-Item -ItemType Directory -Force -Path $assetDir | Out-Null
   Get-ChildItem -LiteralPath (Join-Path $root 'assets') -Force | Where-Object { $_.Name -ne 'usb-key.txt' } | Copy-Item -Destination $assetDir -Recurse -Force
-  [IO.File]::WriteAllText((Join-Path $assetDir 'usb-key.txt'), '')
   $apkName = 'Kaldora-Thor-Release.apk'
 }
 & "$bt\aapt.exe" package -f -m -M "$root\AndroidManifest.xml" -S "$root\res" -A $assetDir -I $jar -J "$out\gen" -F "$out\unsigned.apk"

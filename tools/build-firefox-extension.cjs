@@ -3,7 +3,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const output = path.join(root, 'build', 'firefox-extension');
 fs.mkdirSync(output, { recursive: true });
-const source = fs.readFileSync(path.join(__dirname, 'usb-bridge.cjs'), 'utf8');
+const source = fs.readFileSync(path.join(__dirname, 'game-adapter.cjs'), 'utf8');
 const start = source.indexOf('function inputs()');
 const end = source.indexOf('let snapshot, currentPage;');
 if (start < 0 || end <= start) throw new Error('Game adapter source not found');

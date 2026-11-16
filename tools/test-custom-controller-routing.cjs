@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const code=fs.readFileSync(require('node:path').join(__dirname,'usb-bridge.cjs'),'utf8');
+const code=fs.readFileSync(require('node:path').join(__dirname,'game-adapter.cjs'),'utf8');
 const fragment=code.slice(code.indexOf('function inputs() {'),code.indexOf('function view('));
 const handlers={},output=[];let skillTiles=[],tileClicks=0;const window={addEventListener:(type,fn)=>(handlers[type]??=[]).push(fn)};
 const gamepad={mapping:'',axes:[.5,-.6,0,0],buttons:Array.from({length:17},()=>({pressed:true,touched:true,value:1}))};

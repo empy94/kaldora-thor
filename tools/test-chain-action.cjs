@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const src=fs.readFileSync(require('node:path').join(__dirname,'usb-bridge.cjs'),'utf8');
+const src=fs.readFileSync(require('node:path').join(__dirname,'game-adapter.cjs'),'utf8');
 const text=src.slice(src.indexOf('function action(a) {'),src.indexOf('let snapshot, currentPage;'));
 const bar={chain:0,bRow:1,bRow2:-1};let isOpen=false,clicks=0,opens=0,onceCalls=0;
 const win={classList:{contains:name=>name==='show'&&isOpen}};

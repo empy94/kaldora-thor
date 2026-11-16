@@ -1,25 +1,3 @@
-const http = require('node:http');
-const fs = require('node:fs');
-const key = fs.readFileSync(require('node:path').join(__dirname,'../assets/usb-key.txt'),'utf8').trim();
-const origin = 'https://play.kaldora.eu';
-const port = 49225;
-
-async function pages() {
-  const all = await (await fetch('http://127.0.0.1:'+port+'/json',{signal:AbortSignal.timeout(800)})).json();
-  return all.filter(p=>p.type==='page'&&new URL(p.url).origin===origin);
-}
-function call(page, expression, userGesture=false) {
-  return new Promise((resolve,reject)=>{
-    const ws=new WebSocket(page.webSocketDebuggerUrl);
-    const timer=setTimeout(()=>{ws.close();reject(Error('timeout'))},1300);
-    ws.onopen=()=>ws.send(JSON.stringify({id:1,method:'Runtime.evaluate',params:{expression,returnByValue:true,userGesture,awaitPromise:true}}));
-    ws.onmessage=e=>{
-      const msg=JSON.parse(e.data);if(msg.id!==1)return;
-      clearTimeout(timer);ws.close();resolve(msg.result?.result?.value);
-    };
-    ws.onerror=()=>{clearTimeout(timer);reject(Error('Chrome unavailable'))};
-  });
-}
 function inputs() {
   if(window.__thor?.version===40){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
@@ -795,46 +773,3 @@ function valid(a) {
   return false;
 }
 let snapshot, currentPage;
-async function fullscreen(page){
-  try{
-    await call(page,`(async()=>{
-      const state=window.__thor;
-      if(!state||state.fullscreenEntered||Date.now()<(state.fullscreenRetry||0)
-        ||document.fullscreenElement||!document.hasFocus()||!document.querySelector('#hud.show'))return;
-      state.fullscreenRetry=Date.now()+3000;
-      try{
-        await document.documentElement.requestFullscreen({navigationUI:'hide'});
-        state.fullscreenEntered=!!document.fullscreenElement;
-      }catch{}
-    })()`,true);
-  }catch{}
-}
-async function read() {
-  if(snapshot)return snapshot;
-  snapshot=(async()=>{
-    const list=await pages();
-    const states=await Promise.all(list.map(p=>call(p,'('+view.toString()+')('+inputs.toString()+')').catch(()=>null)));
-    const playing=states.map((d,i)=>d?.online?i:-1).filter(i=>i>=0);
-    const focus=states.findIndex(d=>d?.online&&d.focused);
-    const i=focus>=0?focus:playing.length===1?playing[0]:-1;
-    currentPage=i>=0?list[i]:null;
-    if(focus>=0&&!states[focus].fullscreen)void fullscreen(list[focus]);
-    return i>=0?{page:currentPage,data:states[i]}:{data:{online:false}};
-  })().finally(()=>{snapshot=null});
-  return snapshot;
-}
-http.createServer(async(req,res)=>{
-  const post=req.method==='POST'&&req.url==='/action';
-  if((!post&&(req.method!=='GET'||req.url!=='/game'))||req.headers.authorization!=='Bearer '+key){res.writeHead(404).end();return}
-  res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');
-  try {
-    if(post){
-      let body='';
-      for await(const piece of req){body+=piece;if(body.length>4096){res.writeHead(413).end();return}}
-      const a=JSON.parse(body);
-      const page=valid(a)?(a.type==='move'?currentPage:(await read()).page):null;
-      const ok=page&&await call(page,'('+action.toString()+')('+JSON.stringify(a)+')');
-      res.end(JSON.stringify({ok:!!ok}));
-    } else res.end(JSON.stringify((await read()).data));
-  }catch {res.end(JSON.stringify(post?{ok:false}:{online:false}))}
-}).listen(49226,'127.0.0.1',()=>console.log('Kaldora · liaison USB'));

@@ -27,4 +27,4 @@ function padKey(id, code, modifier, down) {
 }
 ```
 
-The lower screen remains a separate issue: the developer's instructions remove duplicated input handling from the USB bridge, but `view()` and the remaining touch actions still run through that bridge. An app-local, game-supported communication interface is required for the companion to display and operate on live game data without USB. The shape of that interface should be agreed with the game developer.
+The current Firefox companion runs its relay locally and the player confirmed play without USB. The extension still uses the compatibility adapter to read game state and handle touch actions. A game-supported interface could replace that adapter and let the game own controller input.
