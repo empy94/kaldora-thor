@@ -1,6 +1,10 @@
 (() => {
   const token = /^#thor=([a-f0-9]{64})$/.exec(location.hash)?.[1];
   if (!token) return;
+  browser.runtime.onMessage.addListener(request => {
+    if (request?.type === 'thor-probe' && request.token === token)
+      return Promise.resolve({active:true});
+  });
   let sequence = 0;
   function game(command) {
     return new Promise(resolve => {

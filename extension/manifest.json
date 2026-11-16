@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Kaldora Thor Local Bridge",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "browser_specific_settings": {
     "gecko": {"id": "thor-bridge@kaldora-thor.local", "strict_min_version": "128.0"},
     "gecko_android": {}
   },
-  "host_permissions": ["http://127.0.0.1/*"],
+  "host_permissions": ["http://127.0.0.1/*", "https://play.kaldora.eu/*"],
   "background": {"scripts": ["background.js"]},
   "content_scripts": [
     {"matches": ["https://play.kaldora.eu/*"], "js": ["game.js"], "run_at": "document_start", "world": "MAIN"},
