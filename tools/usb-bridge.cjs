@@ -21,10 +21,10 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===39){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===40){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:39,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:40,until:Date.now()+4000,held:new Map(),bind:{}};
   // Kaldora uses part 9 for both shields and off-hand weapons. Its own
   // drawDoll / stoneRisk code identifies a weapon by positive max damage.
   state.socketGearType=item=>{
@@ -42,18 +42,24 @@ function inputs() {
   };
   state.runMacro=(row)=>{
     row=Number(row);
-    if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
-    if(typeof BAR_COLS==='undefined')return false;
-    if(row===(bar.bRow??1)&&typeof runBuffs==='function'){runBuffs();return true}
-    const skills=BAR_COLS.map(col=>slotSkill(10*row+col)).filter(Boolean);
-    if(!skills.length)return false;
-    if(row===(bar.bRow??1)||row===(bar.bRow2??-1)){
-      Module.ccall('viewer_buff_macro',null,['string'],[skills.map(s=>s.id).join(',')]);
-      return true;
-    }
-    if(typeof macroRow!=='undefined'&&macroRow===row){toggleMacro(row);return true}
+    if(!Number.isInteger(row)||row<0||row>3||typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar||typeof BAR_COLS==='undefined')return false;
+    const isBuff=row===(bar.bRow??1)||row===(bar.bRow2??-1);
+    const skills=typeof macroIds==='function'?macroIds(row):BAR_COLS.map(col=>slotSkill(10*row+col)).filter(Boolean).map(skill=>skill.id);
+    if(!skills.length&&!isBuff)return false;
+    // The native implementation owns row chaining and buff behavior.
+    const before=typeof macroRow==='number'?macroRow:null;
     toggleMacro(row);
-    return typeof macroRow!=='undefined'&&macroRow===row;
+    return isBuff||before===row||typeof macroRow!=='number'||macroRow===row;
+  };
+  state.chainInfo=()=>{
+    if(typeof bar==='undefined'||!bar||typeof macroSpan!=='function'||typeof rowHasItems!=='function'||typeof ITEM_ROW!=='number')return null;
+    const flags=Number(bar.chain)||0;
+    return [0,1,2].map(row=>{
+      const next=row+1,buffs=[bar.bRow??1,bar.bRow2??-1],linked=macroSpan(row).length>1;
+      const sourceBuff=buffs.includes(row),targetBuff=buffs.includes(next),itemRow=next===ITEM_ROW,items=rowHasItems(next);
+      const reason=sourceBuff?'This row is a buff row.':targetBuff?'The next row is reserved for buffs.':itemRow?'The next row is reserved for items.':items?'The next row contains items.':'';
+      return {row,linked,canToggle:linked||!reason,reason,expected:flags};
+    });
   };
   const menuSelectors=['#npc-menu','#menu-win','#inventory','#petbag','#bank','#skills','#macro-win','#missions','#character'];
   const visible=x=>x&&x.getClientRects().length&&getComputedStyle(x).visibility!=='hidden';
@@ -212,6 +218,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     if(current&&target&&current.contains(target))highlight(target);
   },true);
   const hasNativePad=()=>typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function';
+  const hasNewNativePad=()=>typeof padTapValue==='function'&&typeof padFrame==='function'&&typeof macroSpan==='function';
   const rawPads=navigator.getGamepads?.bind(navigator);
   const navButtons={0:'accept',1:'back',9:'start',12:'up',13:'down',14:'left',15:'right'};
   const watched=[...Object.keys(navButtons).map(Number),4,5,6,7,8,10,11,2,3];
@@ -234,7 +241,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       if(!active())return pads;
       const menu=!!panel();
       return Array.from(pads,pad=>pad&&new Proxy(pad,{get(target,prop){
-        if(prop==='buttons')return Array.from(target.buttons,(button,i)=>(menu?blocked.has(i):((hasNativePad()?[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]:[4,8,9,10,11,12,13,14,15]).includes(i)||!!state.bind[physicalKeys[i]]||(target.buttons[4]?.pressed&&!!state.bind['C4_'+i])))?{pressed:false,touched:false,value:0}:button);
+        if(prop==='buttons')return Array.from(target.buttons,(button,i)=>(menu?blocked.has(i):((hasNativePad()&&!hasNewNativePad()?[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]:[4,8,9,10,11,12,13,14,15]).includes(i)||!!state.bind[physicalKeys[i]]||(target.buttons[4]?.pressed&&!!state.bind['C4_'+i])))?{pressed:false,touched:false,value:0}:button);
         if(prop==='axes'&&!target.mapping&&target.axes.length>=8)return Array.from(target.axes,(axis,i)=>i===6||i===7?0:axis);
         const value=Reflect.get(target,prop,target);
         return typeof value==='function'?value.bind(target):value;
@@ -273,6 +280,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
         if(now.has(4)&&state.bind['C4_'+i]){l1Used=true;state.performBinding('C4_'+i);continue}
         const key=physicalKeys[i];
         if(key&&state.bind[key]){state.performBinding(key);continue}
+        if(hasNewNativePad()&&[0,1,2,3,5,6,7].includes(i))continue;
         if(hasNativePad()&&[0,1,2,3,5,6,7].includes(i))state.performPad(i);
         else if(i===9)navigate('start');
         else if(i===8)state.select=(state.select||0)+1;
@@ -287,7 +295,19 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   state.performBinding=key=>{
     const binding=state.bind[key];
     if(binding?.type==='macro'){const ok=state.runMacro(binding.value);state.lastMacro={row:binding.value,ok,at:Date.now()};return ok}
-    if(binding?.type==='spell'){const skill=[...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===binding.value&&!x.classList.contains('nomp'));if(!skill)return false;skill.click();return true}
+    if(binding?.type==='spell'){
+      const value=String(binding.value||''),stable=/^t:(\d{1,9})$/.exec(value);
+      if(stable){
+        const tile=[...document.querySelectorAll('#bar-rows .skill[data-skill-tip]')].find(x=>x.dataset.skillTip===stable[1]);
+        if(tile){if(tile.classList.contains('nomp'))return false;tile.click();return true}
+        if(typeof padTapValue==='function'&&typeof skillList!=='undefined'&&skillList.some(x=>String(x.tid)===stable[1]&&!x.passive)){padTapValue('s:'+stable[1]);return true}
+        return false;
+      }
+      // Old instance IDs can point at a different skill after reconnecting.
+      if(hasNewNativePad())return false;
+      const tile=[...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===value&&!x.classList.contains('nomp'));
+      if(!tile)return false;tile.click();return true;
+    }
     if(binding?.type==='action'){
       const action=binding.value;
       if(action==='target'||action==='attack')return state.combat(action);
@@ -308,10 +328,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     if(binding?.type==='macro'){
       const ok=state.runMacro(binding.value);state.lastMacro={row:binding.value,ok,at:Date.now()};return ok;
     }
-    if(binding?.type==='spell'){
-      const skill=[...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===binding.value&&!x.classList.contains('nomp'));
-      if(!skill)return false;skill.click();return true;
-    }
+    if(binding?.type==='spell')return state.performBinding((altKey?'A':'')+key);
     if(index===0&&typeof Module!=='undefined'&&Module.ccall('viewer_interact','number',[],[]))return true;
     for(const type of ['keydown','keyup'])window.dispatchEvent(new KeyboardEvent(type,{code,key,altKey:!!altKey,bubbles:true,cancelable:true}));
     return true;
@@ -347,12 +364,13 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       if(lower.size||camera[0]||camera[1])state.move([],[0,0]);
       cameraTime=now;return;
     }
-    if(!panel()&&typeof Module!=='undefined'&&typeof pad!=='undefined'){
-      const [x,y]=camera, dead=(Number(pad.dead)||40)/200;
+    if(!panel()&&typeof Module!=='undefined'){
+      let cameraSettings={};try{cameraSettings=JSON.parse(localStorage.getItem('archlord.settings')||'{}')?.pad||{}}catch{}
+      const [x,y]=camera, dead=(Number(cameraSettings.dead)||40)/200;
       const elapsed=Math.min(50,cameraTime?now-cameraTime:16);
       if(Math.hypot(x,y)>dead){
-        const scale=(Number(pad.cam)||2.5)*elapsed/(1000/60);
-        Module.ccall('viewer_cam_rotate',null,['number','number'],[(pad.invert?-y:y)*scale,x*scale]);
+        const scale=(Number(cameraSettings.cam)||2.5)*elapsed/(1000/60);
+        Module.ccall('viewer_cam_rotate',null,['number','number'],[(cameraSettings.invert?-y:y)*scale,x*scale]);
       }
     }
     cameraTime=now;
@@ -376,7 +394,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       dispatch(e.type,e.code,codes[e.code]);
       return;
     }
-    if(hasNativePad())return;
+    if(hasNativePad()||hasNewNativePad())return;
     const key=(e.altKey?'A':'')+e.code.replace(/^Digit/,'');
     if(e.code==='KeyM'&&down){e.stopImmediatePropagation();state.select=(state.select||0)+1;return}
     const b=key==='3'?null:state.bind[key];
@@ -387,7 +405,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     if(b.type==='macro'){
       state.lastMacro={row:b.value,ok:state.runMacro(b.value),at:Date.now()};
     } else {
-      [...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===b.value&&!x.classList.contains('nomp'))?.click();
+      state.performBinding(key);
     }
   }
   window.addEventListener('keydown',handle,true);
@@ -492,7 +510,7 @@ function view(install) {
     nativePad:typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function',
     nativePadMap:typeof pad!=='undefined'&&Array.isArray(pad?.map)?pad.map.map(value=>({value,label:(typeof PAD_ACTIONS!=='undefined'?PAD_ACTIONS.flatMap(group=>group[1]).find(option=>option[0]===value)?.[1]:null)||value||'Nothing'})):[],
     buffRows:typeof bar!=='undefined'&&bar?[bar.bRow??1,bar.bRow2??-1]:[],attackRow:typeof bar!=='undefined'&&bar?bar.mRow??0:null,
-    fullscreen:!!document.fullscreenElement,nativeMenu:window.__thor.menu(),bindings:window.__thor.bind,lastMacro:window.__thor.lastMacro,
+    fullscreen:!!document.fullscreenElement,nativeMenu:window.__thor.menu(),bindings:window.__thor.bind,lastMacro:window.__thor.lastMacro,nativeUpdate:typeof macroSpan==='function'&&typeof padTapValue==='function',macroChains:window.__thor.chainInfo?.(),
     activeRow:typeof macroRow==='number'?String(macroRow):'',inventory,npc,catalog,realRows,select:window.__thor.select||0,focused:document.hasFocus(),level:txt('#level'),hp:txt('#hp-text'),mp:txt('#mp-text'),xp:txt('#exp-text'),
     bars:['hp','mp','exp'].map(k=>parseFloat(q('#'+k+'-fill')?.style.width)||0),
     macro:q('#macro-on')?!q('#macro-on').hidden:null,map,
@@ -506,7 +524,7 @@ function view(install) {
     chat:[...q('#chat-log').children].filter(x=>!x.hidden).slice(-25).map(x=>({text:x.textContent.trim().slice(0,300),color:getComputedStyle(x).color})),
     slots:[...document.querySelectorAll('#bar-rows .skill')].slice(0,40).map(x=>{
       const src=x.querySelector('img.icon')?.src||'';
-      return {key:x.querySelector('.key')?.textContent.trim(),id:x.dataset.id||'',name:skillNames.get(x.dataset.id)||'',group:skillGroups.get(x.dataset.id)||'Other',icon:src.startsWith(location.origin+'/')?src:'',
+      return {key:x.querySelector('.key')?.textContent.trim(),id:x.dataset.id||'',tid:x.dataset.skillTip||'',name:skillNames.get(x.dataset.id)||'',group:skillGroups.get(x.dataset.id)||'Other',icon:src.startsWith(location.origin+'/')?src:'',
         disabled:x.classList.contains('nomp'),cooldown:x.querySelector('.cd')?.textContent.trim()||''};
     })};
 }
@@ -575,10 +593,13 @@ function action(a) {
       window.__thor.lastMacro={row:binding.value,ok,at:Date.now()};
       return ok;
     }
-    if(binding?.type==='spell'){
-      const skill=[...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===binding.value&&!x.classList.contains('nomp'));
-      if(!skill)return false;
-      skill.click();return true;
+    if(binding?.type==='spell')return window.__thor.performBinding((altKey?'A':'')+key);
+    if(typeof padTapValue==='function'&&typeof macroSpan==='function'){
+      const index={'2':2,'3':3,'4':5,'5':6,'6':0,'7':1,'8':7}[a.value];
+      let nativeBindings;try{nativeBindings=JSON.parse(localStorage.getItem('archlord.settings')||'{}')?.pad?.bind}catch{}
+      const value=nativeBindings?.[String(index)];
+      if(typeof value!=='string'||!value)return false;
+      padTapValue(value);return true;
     }
     if(a.value==='1')return false;
     if(a.value==='6'&&!window.__thor?.bind.A4&&typeof Module!=='undefined'&&Module.ccall('viewer_interact','number',[],[]))return true;
@@ -627,6 +648,19 @@ function action(a) {
     for(const name of ['display','opacity','pointer-events'])root.style.removeProperty(name);
     return true;
   }
+  if(a.type==='macroChain'){
+    if(typeof bar==='undefined'||!bar||!window.__thor?.chainInfo)return false;
+    const {row,expected}=a.value,info=window.__thor.chainInfo()?.find(x=>x.row===row);
+    if(!info||info.expected!==expected||!info.canToggle)return false;
+    const win=q('#macro-win'),open=q('#macro-btn');if(!win||!open)return false;
+    const wasOpen=win.classList.contains('show');
+    try{
+      if(!wasOpen)open.click();
+      const button=q('#mw-rows .mw-chain[data-row="'+row+'"]');
+      if(!win.classList.contains('show')||!button||button.disabled||typeof button.onclick!=='function')return false;
+      button.click();return (Number(bar.chain)||0)===(expected^(1<<row));
+    }finally{if(!wasOpen&&win.classList.contains('show'))open.click()}
+  }
   if(a.type==='macroSwap'){
     const {row,from,to,expectedFrom,expectedTo}=a.value;
     if(typeof bar==='undefined'||!bar||typeof BAR_COLS==='undefined'||typeof dropOnSlot!=='function')return false;
@@ -649,6 +683,7 @@ function action(a) {
     const x=[...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===a.value&&!x.classList.contains('nomp'));
     if(!x)return false;x.click();return true;
   }
+  if(a.type==='macroOnce'){const row=Number(a.value);if(typeof bar==='undefined'||!bar||typeof macroOnce!=='function'||typeof macroIds!=='function'||(typeof macroRow==='number'&&macroRow>=0)||row===(bar.bRow??1)||row===(bar.bRow2??-1)||!macroIds(row).length)return false;macroOnce(row);return true}
   if(a.type==='macro')return window.__thor?.runMacro(a.value)||false;
   if(a.type==='buff'){
     const b=q('#t-buffs');
@@ -686,13 +721,14 @@ function valid(a) {
     const used=new Set();
     return Object.entries(a.value).every(([k,v])=>{
       if(!/^(?:[4-6]|A[3-6]|C4_[0-3]|C4_[5-7]|L1|L3|R3|START|SELECT|UP|DOWN|LEFT|RIGHT)$/.test(k)||!v)return false;
-      if(v.type==='spell')return digits(v.value);
+      if(v.type==='spell')return digits(v.value)||(typeof v.value==='string'&&/^t:\d{1,9}$/.test(v.value));
       if(v.type==='action')return ['target','attack','interact','menu','companion','buff','map','bag','skills','macro','character','quests','itemLock'].includes(v.value);
       if(v.type!=='macro'||!row(v.value)||used.has(v.value))return false;
       used.add(v.value);return true;
     });
   }
   if(a.type==='macroSlot')return a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<4&&Number.isInteger(a.value.slot)&&a.value.slot>=0&&a.value.slot<10&&Number.isInteger(a.value.tid)&&a.value.tid>=0&&Number.isInteger(a.value.expected)&&a.value.expected>=0;
+  if(a.type==='macroChain')return !!a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<3&&Number.isInteger(a.value.expected)&&a.value.expected>=0&&a.value.expected<=7;
   if(a.type==='macroSwap')return a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<4&&['from','to'].every(k=>Number.isInteger(a.value[k])&&a.value[k]>=0&&a.value[k]<10)&&['expectedFrom','expectedTo'].every(k=>Number.isSafeInteger(a.value[k]));
   if(a.type==='potionAssign')return a.value&&Number.isInteger(a.value.slot)&&a.value.slot>=0&&a.value.slot<=1&&digits(a.value.id);
   if(a.type==='gear')return Number.isInteger(a.value)&&a.value>=0&&a.value<4;
@@ -710,6 +746,7 @@ function valid(a) {
   if(a.type==='bagTab')return a.value&&['inv','pet','bank'].includes(a.value.group)&&Number.isInteger(a.value.index)&&a.value.index>=0&&a.value.index<8;
   if(a.type==='mapView'||a.type==='mapRestore')return true;
   if(a.type==='spell')return digits(a.value);
+  if(a.type==='macroOnce')return row(a.value);
   if(a.type==='macro')return row(a.value);
   if(a.type==='buff')return true;
   if(a.type==='chat')return typeof a.value==='string'&&a.value.trim()&&a.value.length<=120&&!/[\r\n]/.test(a.value);

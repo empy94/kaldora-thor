@@ -1,3 +1,5 @@
+> **Custom-controller compatibility preview**: this branch preserves the companion's original controller profiles and binding workflow while adapting macro execution to Kaldora's updated linked rows. It intentionally retains the companion input path as a temporary exception to the developer's native-only migration request. Assigned inputs are masked from the game's native handler to reduce duplicate actions; unassigned inputs may use the native game. This is not an official API and must be validated on the physical AYN Thor. Older spell bindings based only on session IDs must be rebound; new assignments use stable skill template IDs. The 0.21 source and data-preserving recovery APK remain available.
+
 # Kaldora Thor
 
 An independent Android companion for playing Kaldora on the AYN Thor. The game runs in Chrome on the upper display. The lower display shows game data and sends player-triggered actions through the local USB test bridge.

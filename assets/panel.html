@@ -198,6 +198,8 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 #applySkillConfirm{margin:0 14px 14px;min-height:46px;border-color:#a58b5e;color:#f6e6b5;background:linear-gradient(#514a36,#292b25);font-weight:700}
 #potionEmpty{margin:8px 4px;color:#bacbd0;font-size:13px}
 @media(max-width:420px){#potionOptions{grid-template-columns:1fr}.potionQuick .potionName{font-size:11px}}
+
+#chainTools[hidden]{display:none}#chainHint{font-size:12px;color:#b3c9cf;align-self:center}
 </style>
 
 <nav aria-label="Panels">
@@ -213,7 +215,7 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 <section id="sorts"><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="skillCategories" class="chips"></div><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
 <section id="map" hidden><p id="mapHint">Waiting for the game map…</p><img id="mapImage" alt="Kaldora map" hidden></section>
 <section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
-<section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
+<section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="macroRows" class="tools"></div><div id="chainTools" class="tools" hidden><button id="chainRow" type="button"></button><span id="chainHint"></span></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button><button id="runMacroOnce">Attack once</button></div><p id="macroState"></p></section>
 <section id="controls" hidden>
 <div class="tools"><label for="effectsSetting">Effects</label><select id="effectsSetting" aria-label="Effects"><option value="0">Off</option><option value="1">Minimal</option><option value="2">Full</option></select></div>
 <div class="controller">
@@ -278,6 +280,9 @@ try{
  whisper=localStorage.getItem('lastWhisper')||'';
 }catch{}
 const activeBindings=()=>({...actionBindings,...skillBindings,...macroBindings});
+const skillIdentity=s=>s?.tid?'t:'+s.tid:s?.id||'';
+const matchesSkill=(s,value)=>!!s&&(String(value).startsWith('t:')?skillIdentity(s)===value:s.id===value&&!d.nativeUpdate);
+const skillBindingName=value=>d.slots?.find(s=>matchesSkill(s,value))?.name||(d.nativeUpdate&&!String(value).startsWith('t:')?'Previous skill: rebind required':'Assigned skill');
 const same=(a,b)=>Object.keys(a||{}).length===Object.keys(b||{}).length&&Object.entries(a||{}).every(([k,v])=>b?.[k]?.type===v.type&&b[k].value===v.value);
 function notice(msg){$('feedback').textContent=msg;clearTimeout(timer);timer=setTimeout(()=>$('feedback').textContent='',2200)}
 const queuedNavigation=[];
@@ -388,7 +393,7 @@ function captureRelease(){
  capture.canReplace=conflict;
  $('captureForce').hidden=!conflict;
  if(conflict){
-  const detail=binding.type==='macro'?'Macro row '+(+binding.value+1)+' (Macros)':binding.type==='action'?(actionLabels[binding.value]||'Action')+' (Controls)':((d.slots||[]).find(slot=>slot.id===binding.value)?.name||'Skill')+' (Skills)';
+  const detail=binding.type==='macro'?'Macro row '+(+binding.value+1)+' (Macros)':binding.type==='action'?(actionLabels[binding.value]||'Action')+' (Controls)':(skillBindingName(binding.value))+' (Skills)';
   error=keys[key]+' is assigned to '+detail+'. Replace it or change it in '+(binding.type==='macro'?'Macros':binding.type==='action'?'Controls':'Skills')+'.';
  }
  document.querySelector('.captureCard').classList.toggle('error',!!error);
@@ -428,7 +433,7 @@ window.padRelease=k=>{
 };
 window.resetPad=()=>{localHeld.clear();drawController()};
 function drawGuide(){
- const actionFor=(key,fallback)=>{const b=activeBindings()[key];return b?.type==='action'?(actionLabels[b.value]||b.value):b?.type==='macro'?'Macro row '+(+b.value+1):b?.type==='spell'?(d.slots?.find(s=>s.id===b.value)?.name||'Assigned skill'):fallback};
+ const actionFor=(key,fallback)=>{const b=activeBindings()[key];return b?.type==='action'?(actionLabels[b.value]||b.value):b?.type==='macro'?'Macro row '+(+b.value+1):b?.type==='spell'?skillBindingName(b.value):fallback};
  const entries=[['Left stick','Move'],['Right stick','Camera'],['L3',actionFor('L3','Target next')],['R3',actionFor('R3','Basic attack')],['Start',actionFor('START','Game menu')],['Select',actionFor('SELECT','Companion navigation')],['↑',actionFor('UP','Navigate menus')],['↓',actionFor('DOWN','Navigate menus')],['←',actionFor('LEFT','Navigate menus')],['→',actionFor('RIGHT','Navigate menus')],['A',actionFor('A4','Interact / skill')],['B',actionFor('A5','Back / skill')],['X',actionFor('4','Skill')],['Y',actionFor('5','Skill')],['L1',actionFor('L1','L1 combinations')],['R1',actionFor('6','Skill')],['L2',actionFor('A3','Skill')],['R2',actionFor('A6','Skill')],...Object.entries(keys).filter(([key])=>key.startsWith('C4_')&&activeBindings()[key]).map(([key,label])=>[label,actionFor(key,'')])];
  const guide=$('controlGuide'), fingerprint=JSON.stringify(entries);
  if(guide.dataset.entries===fingerprint)return;guide.dataset.entries=fingerprint;
@@ -443,13 +448,13 @@ function drawController(){
  document.querySelectorAll('[data-pad]').forEach(e=>e.classList.toggle('on',live.has(+e.dataset.pad)));
  if(inspected==null)return;
  const key=inspectedCombo||sourceFor[inspected], binding=activeBindings()[key];
- const spellName=id=>d.slots?.find(s=>s.id===id)?.name;
+ const spellName=id=>skillBindingName(id);
  const options=key&&d.online?[
   ['default','Default action'],
   ...Object.entries(actionLabels).filter(([value])=>value!=='itemLock'||!['A4','A5','START','UP','DOWN','LEFT','RIGHT','C4_0','C4_1'].includes(key)).map(([value,label])=>['action:'+value,label]),
   ...(d.realRows||[]).map((_,i)=>['macro:'+i,'Row '+(i+1)+(d.buffRows?.includes(i)?' · Buff':'')])
    .filter(([value])=>!Object.entries(macroBindings).some(([k,b])=>k!==key&&'macro:'+b.value===value)),
-  ...[...new Map((d.slots||[]).filter(s=>s.id&&!Object.entries(skillBindings).some(([k,b])=>k!==key&&b.value===s.id)).map(s=>[s.id,s])).values()].map(s=>['spell:'+s.id,s.name||'Skill'])
+  ...[...new Map((d.slots||[]).filter(s=>s.id&&!Object.entries(skillBindings).some(([k,b])=>k!==key&&matchesSkill(s,b.value))).map(s=>[s.id,s])).values()].map(s=>['spell:'+skillIdentity(s),s.name||'Skill'])
  ]:null;
  const layout=JSON.stringify([inspected,key,binding,options,d.nativeMenu]);
  if(controllerLayout===layout)return;
@@ -471,7 +476,7 @@ $('controllerCombo').onclick=()=>{inspectedCombo=inspectedCombo?'':'C4_'+inspect
 $('controllerSave').onclick=()=>{
  const key=inspectedCombo||sourceFor[inspected];
  if(!key)return;
- const [type,value]=$('controllerChoice').value.split(':');
+ const [type,...parts]=$('controllerChoice').value.split(':'),value=parts.join(':');
  if(type==='default'){$('controllerReset').click();return}
  const skills={...skillBindings},macros={...macroBindings},actions={...actionBindings};
  delete skills[key];delete macros[key];delete actions[key];
@@ -562,6 +567,7 @@ $('applySkillConfirm').onclick=()=>{if(!skillChoice||skillChoice.row!==row||skil
 $('pickMacroSkill').onclick=()=>{pickMacro=!pickMacro;drawMacros()};
 $('clearMacroSlot').onclick=()=>setMacroSlot(0);
 $('runMacro').onclick=()=>send('macro',String(row));
+$('runMacroOnce').onclick=()=>send('macroOnce',String(row),()=>notice('Attack requested'));
 
 let itemSource='',itemTarget=-1;
 function clearItem(){itemSource='';itemTarget=-1;$('itemInfo').textContent='';drawBag()}
@@ -586,7 +592,7 @@ function drawSkills(slots){
  for(const [key,label] of displayedKeys){
   if(macroBindings[key]||actionBindings[key])continue;
   const binding=skillBindings[key];
-  const match=binding?slots.find(x=>x.id===binding.value):slots.find(x=>x.key===key&&!Object.values(skillBindings).some(b=>b.value===x.id));
+  const match=binding?slots.find(x=>matchesSkill(x,binding.value)):slots.find(x=>x.key===key&&!Object.values(skillBindings).some(b=>matchesSkill(x,b.value)));
   if(match?.id){ordered.push({...match,label});used.add(match.id)}
  }
  for(const x of slots)if(x.id&&!used.has(x.id)){ordered.push({...x,label:''});used.add(x.id)}
@@ -601,7 +607,7 @@ function drawSkills(slots){
    const line=document.createElement('div');line.className='row';
    for(const x of shown.slice(i,i+4)){
     const b=btn('',()=>{
-     if(pickSkill){selectedSkill=x.id;const assigned=Object.keys(skillBindings).find(k=>skillBindings[k].value===x.id);if(assigned)$('skillBind').value=assigned;drawSkills(d.slots||[]);notice(assigned?'Current binding selected':'Choose a controller button, then Bind')}
+     if(pickSkill){selectedSkill=skillIdentity(x);const assigned=Object.keys(skillBindings).find(k=>matchesSkill(x,skillBindings[k].value));if(assigned)$('skillBind').value=assigned;drawSkills(d.slots||[]);notice(assigned?'Current binding selected':'Choose a controller button, then Bind')}
      else send('spell',x.id,()=>{b.classList.add('castFlash');setTimeout(()=>b.classList.remove('castFlash'),230)});
     });
     b.className='slot';
@@ -617,7 +623,7 @@ function drawSkills(slots){
  shown.forEach((x,i)=>{
   const {b,cd}=skillNodes[i];
   b.disabled=!pickSkill&&(x.disabled||!!x.cooldown);
-  b.classList.toggle('selected',x.id===selectedSkill);
+  b.classList.toggle('selected',skillIdentity(x)===selectedSkill);
   b.classList.toggle('noMana',!!x.disabled);
   cd.hidden=!x.cooldown;cd.textContent=x.cooldown||'';
  });
@@ -629,6 +635,9 @@ function drawMacros(){
  $('macroRows').replaceChildren(...Array.from({length:4},(_,i)=>btn(
   'Row '+(i+1)+(attackRow===i?' · Attack':'')+(buffRows.includes(i)?' · Buff':'')+(Object.entries(macroBindings).filter(([,b])=>b.value===String(i)).map(([k])=>' · '+keys[k]).join('')),
   ()=>{row=i;macroSlot=0;pickMacro=false;closeSkillConfirm();updateChoices(true);drawMacros()},i===row)));
+ $('runMacroOnce').disabled=!!d.buffRows?.includes(row)||!d.online;
+ const chain=d.macroChains?.find(x=>x.row===row);$('chainTools').hidden=!chain;
+ if(chain){const button=$('chainRow');button.hidden=!chain.canToggle;button.disabled=!chain.canToggle;button.textContent=(chain.linked?'Unlink':'Link')+' Row '+(row+1)+' + '+(row+2);button.setAttribute('aria-pressed',String(chain.linked));$('chainHint').textContent=(chain.linked?'Linked':'Not linked')+(chain.reason?' · '+chain.reason:chain.linked?' · Rows run together':' · Up to 20 skills');button.onclick=()=>send('macroChain',{row,expected:chain.expected},()=>notice(chain.linked?'Rows unlinked':'Rows linked'))}
  const skills=d.catalog||[], slots=d.realRows?.[row]||[];
  $('macroSlots').replaceChildren(...slots.map((s,i)=>{
   const skill=skills.find(k=>k.tid===s.tid);let pointer=null,suppressClick=false;
@@ -811,7 +820,7 @@ window.renderGame=state=>{
   $('chatLog').replaceChildren(...m.map(x=>{const el=document.createElement('div');el.textContent=x.text;el.style.color=x.color;return el}));
   $('chatLog').scrollTop=$('chatLog').scrollHeight;
  });
- changed('macro',[d.realRows,d.catalog,d.buffRows,d.attackRow],drawMacros);
+ changed('macro',[d.realRows,d.catalog,d.buffRows,d.attackRow,d.macroChains],drawMacros);
  changed('bag',d.inventory,drawBag);
  changed('sets',d.sets,drawGearSets);
  changed('itemDetails',d.itemDetails,drawItemDetails);

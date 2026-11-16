@@ -14,4 +14,6 @@ assert.equal(act('macroSwap',{row:0,from:2,to:1,expectedFrom:999,expectedTo:222}
 bar.slots[4]=-23;assert.equal(act('macroSwap',{row:0,from:2,to:1,expectedFrom:-23,expectedTo:222}),false);assert.equal(saved,2);
 assert.equal(act('macroSlot',{row:0,slot:0,tid:222,expected:0}),true);assert.equal(bar.slots[2],222);assert.equal(act('macroSlot',{row:0,slot:0,tid:0,expected:0}),false);
 assert.equal(ctx.valid({type:'extraBuffRow',value:2}),false);assert.equal(ctx.valid({type:'allBuffs',value:null}),false);
+assert.equal(ctx.valid({type:'bind',value:{'4':{type:'spell',value:'t:670'}}}),true);
+assert.equal(ctx.valid({type:'bind',value:{'4':{type:'spell',value:'t:malformed'}}}),false);
 console.log('Macro swap, stale state, item restrictions, skill confirmation checks passed.');
