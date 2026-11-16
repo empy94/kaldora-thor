@@ -14,6 +14,8 @@ The **Sets** panel shows the four sets stored by Kaldora. Tap a saved set to equ
 
 The Macros tab shows the live attack-macro status on every panel: ON with its active row, OFF, or — when the game link is unavailable. Attack rows toggle on and off; buff rows use the game’s native one-shot buffs action, including the hero-buff selection. The Map panel displays the map supplied by Kaldora. The launcher uses the game’s supported browser mode, so a separate installed web-app icon is not required. On the login screen, use Play fullscreen if the browser bars are visible.
 
+When an inventory item is highlighted, the lower-screen item details offer Lock / Unlock using Kaldora’s native item lock. The same action can be assigned in Controls to a non-navigation button or supported L1 combination. The companion prevents moving a locked source or swapping onto a locked destination through its own controller and bag-move paths. The game’s lock also protects items from selling and destruction; native touchscreen movement is controlled by the game.
+
 The two potion slots remain visible above every panel. Tap a slot to choose a compatible potion currently in the character’s inventory; counts and item art come from the game. The selection uses the game’s own potion-slot handler and leaves the automatic HP/MP thresholds unchanged.
 
 The Controls panel also exposes the game’s Effects setting (Off, Minimal or Full). On touch devices, the bridge restores the saved Effects and buff-effects choices after the game applies its mobile defaults. While a game window is open, use the D-pad to navigate, left/right to adjust a selection or slider, A to activate, and B to close.

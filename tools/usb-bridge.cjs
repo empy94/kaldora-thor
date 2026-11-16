@@ -21,10 +21,10 @@ function call(page, expression, userGesture=false) {
   });
 }
 function inputs() {
-  if(window.__thor?.version===33){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===37){window.__thor.until=Date.now()+4000;return}
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:33,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:37,until:Date.now()+4000,held:new Map(),bind:{}};
   state.runMacro=(row)=>{
     row=Number(row);
     if(typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar)return false;
@@ -55,6 +55,8 @@ function inputs() {
     const list=[...p.querySelectorAll('button,[role=button],select,input:not([type=hidden]),textarea,.skill-card,[draggable=true],[onclick],[tabindex]:not([tabindex="-1"]),#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot,#inv-trash,#pet-trash,#cash-trash,#mw-rows .skill,#mw-skills .skill')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
     return list.sort((a,b)=>Number(a.matches('.close,[data-close]'))-Number(b.matches('.close,[data-close]')));
   };
+  const ownedItem=id=>(typeof inv!=='undefined'&&inv?.items?.find(x=>String(x.id)===String(id)))||(typeof bankItems!=='undefined'&&bankItems?.find(x=>String(x.id)===String(id)))||null;
+  const lockedSlot=node=>!!(node?.dataset?.item&&ownedItem(node.dataset.item)?.locked);
   let highlighted, dragSource, dragItem, dragMoved=false, anchor, dragStartedAt=0, lastItemTap=null;
   const anchors=new WeakMap();
   function highlight(next){
@@ -63,7 +65,7 @@ function inputs() {
     highlighted=next;
     if(next){
       const parent=next.parentElement;
-      anchor=parent?.id?{parent:parent.id,index:[...parent.children].indexOf(next),id:next.id}:null;
+      anchor=parent?.id?{parent:parent.id,index:[...parent.children].indexOf(next),id:next.id,item:next.dataset.item||''}:null;
       const owner=panel();if(owner&&anchor)anchors.set(owner,anchor);
 next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'nearest'});}
   }
@@ -125,6 +127,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       source.classList.remove('thor-drag');dragSource=null;dragItem=null;
       if(dragMoved&&target&&target!==source&&source.isConnected&&target.isConnected){
         lastItemTap=null;
+        if(lockedSlot(source)||lockedSlot(target)){dragMoved=false;return false}
         const transfer=new DataTransfer();
         if(item)transfer.setData('text/plain',item);
         else source.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer:transfer}));
@@ -172,10 +175,27 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   state.navigate=navigate;
   state.menu=()=>panel()?.id||"";
   state.selectedItem=()=>{
-    const current=panel();
-    if(!current||!highlighted||!current.contains(highlighted)||!highlighted.matches('#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot'))return null;
-    return highlighted;
+    const current=panel(),selector='#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot';
+    if(!current||!highlighted)return null;
+    if(!current.contains(highlighted)){
+      const id=anchors.get(current)?.item;
+      const replacement=id&&[...current.querySelectorAll(selector)].find(node=>node.dataset.item===id);
+      if(replacement)highlight(replacement);
+    }
+    return current.contains(highlighted)&&highlighted.matches(selector)?highlighted:null;
   };
+  state.toggleItemLock=(id,expected)=>{
+    const slot=state.selectedItem(),item=ownedItem(id),pending=state.lockPending;
+    if(!slot||slot.dataset.item!==String(id)||!item||!!item.locked!==expected||typeof Module==='undefined')return false;
+    if(pending&&pending.id===String(id)&&Date.now()<pending.until)return false;
+    state.lockPending={id:String(id),expected,until:Date.now()+5000};
+    try{Module.ccall('viewer_toggle_lock',null,['number'],[item.id]);return true}catch{state.lockPending=null;return false}
+  };
+  window.addEventListener('pointerdown',event=>{
+    if(window.__thor!==state||Date.now()>=state.until||!document.querySelector('#hud.show')||!event.isTrusted)return;
+    const current=panel(),target=event.target?.closest?.('#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot');
+    if(current&&target&&current.contains(target))highlight(target);
+  },true);
   const hasNativePad=()=>typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function';
   const rawPads=navigator.getGamepads?.bind(navigator);
   const navButtons={0:'accept',1:'back',9:'start',12:'up',13:'down',14:'left',15:'right'};
@@ -228,7 +248,12 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       for(const i of now){
         if(previous.has(i))continue;
         state.lastPress={button:i,at:Date.now()};
-        if(menu){if(i===9)navigate('start');else if(navButtons[i])navigate(i===0?'downAccept':navButtons[i]);continue}
+        if(menu){
+          const combo=now.has(4)&&i!==4?'C4_'+i:null,key=physicalKeys[i];
+          if(combo&&state.bind[combo]?.type==='action'&&state.bind[combo].value==='itemLock'){l1Used=true;state.performBinding(combo)}
+          else if(key&&!navButtons[i]&&i!==4&&state.bind[key]?.type==='action'&&state.bind[key].value==='itemLock')state.performBinding(key);
+          else if(i===9)navigate('start');else if(navButtons[i])navigate(i===0?'downAccept':navButtons[i]);continue;
+        }
         if(i===4)continue;
         if(now.has(4)&&state.bind['C4_'+i]){l1Used=true;state.performBinding('C4_'+i);continue}
         const key=physicalKeys[i];
@@ -239,7 +264,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
         else if(i===10||i===11)state.combat(i===10?'target':'attack');
       }
       if(menu&&previous.has(0)&&!now.has(0))navigate('upAccept');
-      if(!menu&&previous.has(4)&&!now.has(4)&&!l1Used&&state.bind.L1)state.performBinding('L1');
+      if(previous.has(4)&&!now.has(4)&&!l1Used&&state.bind.L1&&(!menu||(state.bind.L1.type==='action'&&state.bind.L1.value==='itemLock')))state.performBinding('L1');
       previous=now;
     }
     requestAnimationFrame(poll);
@@ -251,6 +276,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     if(binding?.type==='action'){
       const action=binding.value;
       if(action==='target'||action==='attack')return state.combat(action);
+      if(action==='itemLock'){const slot=state.selectedItem(),item=slot&&ownedItem(slot.dataset.item);return !!item&&state.toggleItemLock(String(item.id),!!item.locked)}
       if(action==='menu')return navigate('start');
       if(action==='companion'){state.select=(state.select||0)+1;return true}
       if(action==='interact')return !!Module.ccall('viewer_interact','number',[],[]);
@@ -411,7 +437,9 @@ function view(install) {
         });
         return {lines,sockets,icon:art?.src?.startsWith(location.origin+'/')?art.src:''};
       };
-      itemDetails={id:String(item.id),cards:[
+      const pending=window.__thor.lockPending;
+      if(pending?.id===String(item.id)&&(!!item.locked!==pending.expected||Date.now()>=pending.until))window.__thor.lockPending=null;
+      itemDetails={id:String(item.id),locked:!!item.locked,lockPending:window.__thor.lockPending?.id===String(item.id),cards:[
         ...(equipped?[build(equipped,'Equipped',null,'')]:[]),
         build(item,equipped?'This item':'',equipped,slot.dataset.hint)
       ]};
@@ -475,7 +503,8 @@ function action(a) {
   }
   if(a.type==='nav')return window.__thor?.navigate(a.value)||false;
   if(a.type==='combat')return window.__thor?.combat(a.value)||false;
-  if(a.type==='combo'){if(window.__thor?.menu())return false;return window.__thor?.performBinding(a.value)||false}
+  if(a.type==='combo'){if(window.__thor?.menu()&&window.__thor?.bind[a.value]?.value!=='itemLock')return false;return window.__thor?.performBinding(a.value)||false}
+  if(a.type==='itemLock')return window.__thor?.toggleItemLock(a.value.id,a.value.locked)||false;
   if(a.type==='potionAssign'){
     if(typeof inv==='undefined'||typeof bar==='undefined'||!Array.isArray(inv?.items)||!Array.isArray(bar?.potions))return false;
     const {slot,id}=a.value;
@@ -531,6 +560,8 @@ function action(a) {
     const source=[...(grid?.children||[])].find(s=>s.dataset.item===from);
     const dest=grid?.children[to];
     if(!source||!source.draggable||!dest||source===dest||(dest.dataset.item||'')!==target)return false;
+    const owned=id=>(typeof inv!=='undefined'&&inv?.items?.find(x=>String(x.id)===String(id)))||(typeof bankItems!=='undefined'&&bankItems?.find(x=>String(x.id)===String(id)));
+    if(owned(from)?.locked||(target&&owned(target)?.locked))return false;
     const dataTransfer=new DataTransfer();
     source.dispatchEvent(new DragEvent('dragstart',{bubbles:true,cancelable:true,dataTransfer}));
     if(!dataTransfer.types.length)return false;
@@ -600,6 +631,7 @@ function valid(a) {
   const row=v=>typeof v==='string'&&/^[0-3]$/.test(v);
   if(a.type==='nativePad')return Number.isInteger(a.value)&&a.value>=0&&a.value<=15;
   if(a.type==='combo')return typeof a.value==='string'&&/^(?:[4-6]|A[3-6]|C4_[0-35-7]|L1|L3|R3|START|SELECT|UP|DOWN|LEFT|RIGHT)$/.test(a.value);
+  if(a.type==='itemLock')return !!a.value&&digits(a.value.id)&&typeof a.value.locked==='boolean';
   if(a.type==='effects')return ['0','1','2'].includes(String(a.value));
   if(a.type==='nav')return ['start','back','left','right','up','down','accept','downAccept','upAccept'].includes(a.value);
   if(a.type==='combat')return ['target','attack'].includes(a.value);
@@ -609,7 +641,7 @@ function valid(a) {
     return Object.entries(a.value).every(([k,v])=>{
       if(!/^(?:[4-6]|A[3-6]|C4_[0-3]|C4_[5-7]|L1|L3|R3|START|SELECT|UP|DOWN|LEFT|RIGHT)$/.test(k)||!v)return false;
       if(v.type==='spell')return digits(v.value);
-      if(v.type==='action')return ['target','attack','interact','menu','companion','buff','map','bag','skills','macro','character','quests'].includes(v.value);
+      if(v.type==='action')return ['target','attack','interact','menu','companion','buff','map','bag','skills','macro','character','quests','itemLock'].includes(v.value);
       if(v.type!=='macro'||!row(v.value)||used.has(v.value))return false;
       used.add(v.value);return true;
     });

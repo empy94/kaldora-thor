@@ -127,8 +127,8 @@ button:active{filter:brightness(1.2)}
 #sets .gearSets button span{font-size:12px;line-height:1.4}
 #sets>.tools{margin:0;padding-top:2px}
 #itemOverlay:not([hidden]){position:absolute;z-index:8;top:59px;bottom:8px;left:9px;right:9px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 10px 30px #0009}
-#itemOverlay .itemHeader{display:flex;justify-content:flex-end;margin-bottom:7px}
-#itemOverlay .itemHeader button{flex:0 0 auto;min-height:38px;padding:0 12px}
+#itemOverlay .itemHeader{display:flex;align-items:center;justify-content:flex-end;gap:7px;margin-bottom:7px}
+#itemOverlay .itemHeader button{flex:0 0 auto;min-height:44px;padding:0 12px}#itemLockState{margin-right:auto;color:#b9ccd0;font-size:12px;font-weight:600}#itemLock{display:flex;align-items:center;gap:7px}#itemLock[hidden]{display:none}#itemLock svg{width:17px;height:17px}#itemLock.locked{border-color:#d6b269;color:#f3dfb0;background:linear-gradient(#524a35,#2b302a)}
 #itemCards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;overflow:auto;min-height:0;align-items:start}
 .itemCard{padding:10px;background:#0d191f;border:1px solid #435962;border-radius:5px;min-width:0}
 .itemCard img{float:right;width:40px;height:40px;object-fit:contain;margin-left:8px;border:1px solid #66777a;border-radius:4px}
@@ -239,7 +239,7 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 <div id="nativeControls" class="tools" hidden></div>
 </section>
 <section id="sets" hidden><div id="gearSets" class="gearSets"></div><div class="tools"><button id="editGearSets">Edit sets in game</button></div></section>
-<section id="itemOverlay" hidden aria-label="Item details"><div class="itemHeader"><button id="closeItemDetails">Back to panel</button></div><div id="itemCards"></div></section>
+<section id="itemOverlay" hidden aria-label="Item details"><div class="itemHeader"><span id="itemLockState" aria-live="polite"></span><button id="itemLock" type="button" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 7V5a4 4 0 0 1 8 0v2h1v8H3V7zm2 0h4V5a2 2 0 0 0-4 0z" fill="currentColor"/></svg><span></span></button><button id="closeItemDetails">Back to panel</button></div><div id="itemCards"></div></section>
 <section id="menus" hidden><div id="npc" hidden></div><div class="tools"><button id="inventory">Bag</button><button id="pet">Pet</button><button id="bank">Storage</button></div><div id="bagTabs" class="tools"></div><div id="bagGrid"></div><p id="itemInfo"></p><div class="tools"><button id="moveItem" hidden>Move here</button><button id="clearItem" hidden>Cancel move</button></div></section>
 <div id="potionPicker" hidden role="dialog" aria-modal="true" aria-labelledby="potionPickerTitle"><div class="potionSheet"><div class="potionSheetHeader"><strong id="potionPickerTitle"></strong><button id="closePotionPicker" type="button">Close</button></div><div id="potionOptions"></div><p id="potionEmpty" hidden>No compatible potions in your inventory.</p></div></div>
 <div id="captureDialog" hidden role="dialog" aria-modal="true" aria-label="Record controller button"><div class="captureCard"><strong>Press a controller button</strong><p id="captureMessage">Release the button, then confirm.</p><div class="tools"><button id="captureConfirm" disabled>Confirm</button><button id="captureForce" hidden>Replace binding</button><button id="captureCancel">Cancel</button></div></div></div><output id="feedback" role="status"></output>
@@ -331,7 +331,7 @@ window.padKey=k=>{
 };
 const physical={BUTTON_A:0,BUTTON_B:1,BUTTON_X:2,BUTTON_Y:3,BUTTON_L1:4,BUTTON_R1:5,BUTTON_L2:6,BUTTON_R2:7,BUTTON_SELECT:8,BUTTON_START:9,BUTTON_THUMBL:10,BUTTON_THUMBR:11,DPAD_UP:12,DPAD_DOWN:13,DPAD_LEFT:14,DPAD_RIGHT:15,DPAD_CENTER:0};
 const sourceFor={0:'A4',1:'A5',2:'4',3:'5',4:'L1',5:'6',6:'A3',7:'A6',8:'SELECT',9:'START',10:'L3',11:'R3',12:'UP',13:'DOWN',14:'LEFT',15:'RIGHT'};
-const actionLabels={target:'Next target',attack:'Basic attack',interact:'Interact / pick up',menu:'Game menu',companion:'Companion navigation',buff:'Cast buffs',map:'Map',bag:'Inventory',skills:'Skills window',macro:'Macros window',character:'Character window',quests:'Quests window'};
+const actionLabels={itemLock:'Lock / unlock selected item',target:'Next target',attack:'Basic attack',interact:'Interact / pick up',menu:'Game menu',companion:'Companion navigation',buff:'Cast buffs',map:'Map',bag:'Inventory',skills:'Skills window',macro:'Macros window',character:'Character window',quests:'Quests window'};
 const defaults=['Interact / skill','Back / skill','Skill','Skill','L1 combinations','Skill','Skill','Skill','Companion navigation','Game menu','Target next','Basic attack','Menu up','Menu down','Menu left','Menu right'];
 const localHeld=new Set();
 let capture=null,l1Used=false;
@@ -397,7 +397,7 @@ let inspected, inspectedCombo='', lastPress, controllerLayout='';
 document.querySelectorAll('[data-pad]').forEach(el=>el.addEventListener('click',()=>{inspected=Number(el.dataset.pad);inspectedCombo='';controllerLayout='';drawController()}));
 window.padRelease=k=>{
  const index=physical[k];
- if(index!=null){localHeld.delete(index);drawController();if(capture){captureRelease();return}if(k==='BUTTON_A'&&d.nativeMenu&&$('potionPicker').hidden)send('nav','upAccept');if(index===4&&!l1Used&&!mode&&!d.nativeMenu)runAssigned('L1')}
+ if(index!=null){localHeld.delete(index);drawController();if(capture){captureRelease();return}if(k==='BUTTON_A'&&d.nativeMenu&&$('potionPicker').hidden)send('nav','upAccept');if(index===4&&!l1Used&&!mode&&(!d.nativeMenu||activeBindings().L1?.value==='itemLock'))runAssigned('L1')}
 };
 window.resetPad=()=>{localHeld.clear();drawController()};
 function drawGuide(){
@@ -419,7 +419,7 @@ function drawController(){
  const spellName=id=>d.slots?.find(s=>s.id===id)?.name;
  const options=key&&d.online?[
   ['default','Default action'],
-  ...Object.entries(actionLabels).map(([value,label])=>['action:'+value,label]),
+  ...Object.entries(actionLabels).filter(([value])=>value!=='itemLock'||!['A4','A5','START','UP','DOWN','LEFT','RIGHT','C4_0','C4_1'].includes(key)).map(([value,label])=>['action:'+value,label]),
   ...(d.realRows||[]).map((_,i)=>['macro:'+i,'Row '+(i+1)+(d.buffRows?.includes(i)?' · Buff':'')])
    .filter(([value])=>!Object.entries(macroBindings).some(([k,b])=>k!==key&&'macro:'+b.value===value)),
   ...[...new Map((d.slots||[]).filter(s=>s.id&&!Object.entries(skillBindings).some(([k,b])=>k!==key&&b.value===s.id)).map(s=>[s.id,s])).values()].map(s=>['spell:'+s.id,s.name||'Skill'])
@@ -631,7 +631,11 @@ $('closeItemDetails').onclick=()=>{
  dismissedItem=d.itemDetails?.id||null;
  $('itemOverlay').hidden=true;
 };
+$('itemLock').onclick=()=>{const item=d.itemDetails;if(!item||item.lockPending)return;send('itemLock',{id:item.id,locked:!!item.locked})};
 function drawItemDetails(item){
+ const lock=$('itemLock');lock.hidden=!item;lock.disabled=!item||!!item.lockPending;lock.classList.toggle('locked',!!item?.locked);
+ lock.setAttribute('aria-pressed',item?.locked?'true':'false');lock.querySelector('span').textContent=item?.lockPending?'Updating…':item?.locked?'Unlock':'Lock';
+ $('itemLockState').textContent=item?(item.lockPending?'Updating…':item.locked?'Locked':'Unlocked'):'';
  if(item?.id!==lastItemDetail){dismissedItem=null;lastItemDetail=item?.id||null}
  $('itemOverlay').hidden=!item||dismissedItem===item.id;
  if(!item){$('itemCards').replaceChildren();return}
