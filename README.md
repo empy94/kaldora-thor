@@ -14,7 +14,7 @@ The companion's saved skill and macro bindings take priority over the game's con
 
 The **Sets** panel shows the four sets stored by Kaldora. Tap a saved set to equip it, or open the game's editor to create and update sets. When an inventory item is highlighted with the D-pad, the lower screen shows its native item details, occupied and empty sockets, and, where available, the equipped-item comparison. Sets can include equipment and the skill bar. The lower-screen joystick bridge forwards movement and right-stick camera input when the companion has focus.
 
-In Macros, drag a slot onto another slot to move or swap its contents. Choosing a skill first shows its current level and the description supplied by the game; confirm to assign it. Rows display their native Attack and Buff roles. An optional extra buff row uses Kaldora’s second buff-row setting; Cast buffs calls the game’s native action for both configured buff rows. The game still controls the total number of rows and slots.
+In Macros, drag a slot onto another slot to move or swap its contents. Choosing a skill first shows its current level and the description supplied by the game; confirm to assign it. Rows display their native Attack and Buff roles. The game still controls the total number of rows and slots.
 
 The Macros tab shows the live attack-macro status on every panel: ON with its active row, OFF, or — when the game link is unavailable. Attack rows toggle on and off; buff rows use the game’s native one-shot buffs action, including the hero-buff selection. The Map panel displays the map supplied by Kaldora. The launcher uses the game’s supported browser mode, so a separate installed web-app icon is not required. On the login screen, use Play fullscreen if the browser bars are visible.
 

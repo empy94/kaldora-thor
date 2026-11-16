@@ -626,16 +626,6 @@ function action(a) {
     dropOnSlot({preventDefault(){},dataTransfer:{getData:()=>`slot:${source}`}},target);
     return Number(bar.slots[target]||0)===expectedFrom&&Number(bar.slots[source]||0)===expectedTo;
   }
-  if(a.type==='extraBuffRow'){
-    if(typeof bar==='undefined'||!bar)return false;
-    const row=a.value,el=q('#set-brow2');
-    if(!el||row===Number(bar.mRow??0)||row===Number(bar.bRow??1)||![...el.options].some(o=>Number(o.value)===row))return false;
-    el.value=String(row);el.dispatchEvent(new Event('change',{bubbles:true}));return bar.bRow2===row;
-  }
-  if(a.type==='allBuffs'){
-    if(typeof bar==='undefined'||!bar||typeof runBuffs!=='function')return false;
-    runBuffs();return true;
-  }
   if(a.type==='macroSlot'){
     const {row,slot,tid,expected}=a.value;
     if(typeof bar==='undefined'||!bar||typeof mwPlace!=='function'||typeof BAR_COLS==='undefined')return false;
@@ -694,8 +684,6 @@ function valid(a) {
   }
   if(a.type==='macroSlot')return a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<4&&Number.isInteger(a.value.slot)&&a.value.slot>=0&&a.value.slot<10&&Number.isInteger(a.value.tid)&&a.value.tid>=0&&Number.isInteger(a.value.expected)&&a.value.expected>=0;
   if(a.type==='macroSwap')return a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<4&&['from','to'].every(k=>Number.isInteger(a.value[k])&&a.value[k]>=0&&a.value[k]<10)&&['expectedFrom','expectedTo'].every(k=>Number.isSafeInteger(a.value[k]));
-  if(a.type==='extraBuffRow')return Number.isInteger(a.value)&&a.value>=-1&&a.value<4;
-  if(a.type==='allBuffs')return a.value===null;
   if(a.type==='potionAssign')return a.value&&Number.isInteger(a.value.slot)&&a.value.slot>=0&&a.value.slot<=1&&digits(a.value.id);
   if(a.type==='gear')return Number.isInteger(a.value)&&a.value>=0&&a.value<4;
   if(a.type==='gearEdit')return true;

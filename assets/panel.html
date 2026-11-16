@@ -152,7 +152,7 @@ nav button{min-height:48px;font-size:13px}nav button[aria-selected=true]{border-
 section{padding:10px 12px;border-color:#405762}
 #skills .row{grid-template-columns:repeat(4,minmax(0,1fr));justify-items:center;gap:10px}
 #skills .slot{width:100%;min-height:68px}#skills .slot .art{width:50px;height:50px}
-#macroSlots{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}#macroSlots .slot{min-height:64px;touch-action:none}#macroSlots .slot.dragging{opacity:.55}#macroSlots .slot.drop-target{outline:2px solid #cdb276;outline-offset:2px} #macroBuffTools{display:flex;gap:6px;align-items:center;flex-wrap:wrap}#macroBuffTools label{font-size:12px;color:#bacfd1}#macroBuffTools select,#macroBuffTools button{min-height:42px}
+#macroSlots{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}#macroSlots .slot{min-height:64px;touch-action:none}#macroSlots .slot.dragging{opacity:.55}#macroSlots .slot.drop-target{outline:2px solid #cdb276;outline-offset:2px}
 #controls .controller{grid-template-columns:minmax(0,1.25fr) minmax(175px,1fr);gap:14px;margin:12px 0}
 #controls .controller svg{max-height:360px}.controller [data-pad]{cursor:pointer}.controller [data-pad]:active :is(circle,rect,path){fill:#759da9}
 #controls .controllerDetail{padding:12px;border:1px solid #405963;border-radius:6px;background:linear-gradient(160deg,#20333c,#13232b)}
@@ -203,7 +203,7 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 <section id="sorts"><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="skillCategories" class="chips"></div><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
 <section id="map" hidden><p id="mapHint">Waiting for the game map…</p><img id="mapImage" alt="Kaldora map" hidden></section>
 <section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
-<section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div id="macroBuffTools"><label for="extraBuffRow">Extra buff row</label><select id="extraBuffRow"></select><button id="castAllBuffs" type="button">Cast buffs</button></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
+<section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
 <section id="controls" hidden>
 <div class="tools"><label for="effectsSetting">Effects</label><select id="effectsSetting" aria-label="Effects"><option value="0">Off</option><option value="1">Minimal</option><option value="2">Full</option></select></div>
 <div class="controller">
@@ -542,8 +542,6 @@ function showSkillConfirm(skill){
 $('cancelSkillConfirm').onclick=closeSkillConfirm;
 $('skillConfirm').onclick=e=>{if(e.target===$('skillConfirm'))closeSkillConfirm()};
 $('applySkillConfirm').onclick=()=>{if(!skillChoice||skillChoice.row!==row||skillChoice.slot!==macroSlot)return closeSkillConfirm();setMacroSlot(skillChoice.tid,skillChoice.expected)};
-$('extraBuffRow').onchange=e=>send('extraBuffRow',Number(e.target.value),()=>notice('Buff row updated'));
-$('castAllBuffs').onclick=()=>send('allBuffs',null);
 $('pickMacroSkill').onclick=()=>{pickMacro=!pickMacro;drawMacros()};
 $('clearMacroSlot').onclick=()=>setMacroSlot(0);
 $('runMacro').onclick=()=>send('macro',String(row));
@@ -614,8 +612,6 @@ function drawMacros(){
  $('macroRows').replaceChildren(...Array.from({length:4},(_,i)=>btn(
   'Row '+(i+1)+(attackRow===i?' · Attack':'')+(buffRows.includes(i)?' · Buff':'')+(Object.entries(macroBindings).filter(([,b])=>b.value===String(i)).map(([k])=>' · '+keys[k]).join('')),
   ()=>{row=i;macroSlot=0;pickMacro=false;closeSkillConfirm();updateChoices(true);drawMacros()},i===row)));
- const extra=$('extraBuffRow'),selected=Number(buffRows[1]??-1);
- extra.replaceChildren(...[-1,0,1,2,3].map(i=>{const option=document.createElement('option');option.value=String(i);option.textContent=i<0?'None':'Row '+(i+1);option.disabled=i>=0&&i!==selected&&(i===attackRow||i===Number(buffRows[0]));return option}));extra.value=String(selected);
  const skills=d.catalog||[], slots=d.realRows?.[row]||[];
  $('macroSlots').replaceChildren(...slots.map((s,i)=>{
   const skill=skills.find(k=>k.tid===s.tid);let pointer=null,suppressClick=false;
