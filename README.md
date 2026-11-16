@@ -1,3 +1,5 @@
+> **Experimental native-controller preview**: this branch targets an upcoming Kaldora update and is not the stable 0.21 custom-controller release. It does not migrate or overwrite bindings. The current public game may not expose the new settings. Physical two-display input and selection-based item details are unverified or unavailable. To restore the stable app without clearing data, use the 0.21 Stable Recovery APK and the v0.21 bridge. An official API is not yet available.
+
 # Kaldora Thor
 
 An independent Android companion for playing Kaldora on the AYN Thor. The game runs in Chrome on the upper display. The lower display shows game data and sends player-triggered actions through the local USB test bridge.

@@ -198,6 +198,10 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 #applySkillConfirm{margin:0 14px 14px;min-height:46px;border-color:#a58b5e;color:#f6e6b5;background:linear-gradient(#514a36,#292b25);font-weight:700}
 #potionEmpty{margin:8px 4px;color:#bacbd0;font-size:13px}
 @media(max-width:420px){#potionOptions{grid-template-columns:1fr}.potionQuick .potionName{font-size:11px}}
+
+/* Native-controller preview: the game owns bindings; controls are read-only. */
+#skillPick,#recordSkill,#clearSkill,#recordMacro,#unbindMacro,#openGameMenu,#resetAllControls,#confirmResetControls,#controllerAssign,#itemLock,#nativeControls{display:none!important}
+.nativeHint{display:block!important;color:#c7d7da;font-size:12px;margin:4px 0 8px}
 </style>
 
 <nav aria-label="Panels">
@@ -210,10 +214,10 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 </nav>
 <div id="potionBar" aria-label="Potion slots"><button id="potionHp" class="potionQuick hp" type="button" disabled></button><button id="potionMp" class="potionQuick mp" type="button" disabled></button></div>
 <div id="vitals" hidden><div id="level">Level —</div><div class="meter"><b id="hp">HP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="mp">MP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="xp">EXP —</b><div class="track"><div class="fill"></div></div></div></div>
-<section id="sorts"><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="skillCategories" class="chips"></div><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
+<section id="sorts"><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller. Native support is pending.</p><div id="skillCategories" class="chips"></div><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
 <section id="map" hidden><p id="mapHint">Waiting for the game map…</p><img id="mapImage" alt="Kaldora map" hidden></section>
 <section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
-<section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
+<section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller. Native support is pending.</p><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
 <section id="controls" hidden>
 <div class="tools"><label for="effectsSetting">Effects</label><select id="effectsSetting" aria-label="Effects"><option value="0">Off</option><option value="1">Minimal</option><option value="2">Full</option></select></div>
 <div class="controller">
@@ -282,6 +286,7 @@ const same=(a,b)=>Object.keys(a||{}).length===Object.keys(b||{}).length&&Object.
 function notice(msg){$('feedback').textContent=msg;clearTimeout(timer);timer=setTimeout(()=>$('feedback').textContent='',2200)}
 const queuedNavigation=[];
 function send(type,value,done){
+ if(['nativePad','nav','combo','pad','move','bind','itemLock'].includes(type)){notice('Managed by the game');return}
  if(pending){if(type==='nav')queuedNavigation.push([type,value,done]);else if(type!=='pad')notice('One action at a time');return}
  if(!d.online){notice('USB link unavailable');return}
  pending=true;complete=done;
@@ -427,45 +432,27 @@ window.padRelease=k=>{
  if(index!=null){localHeld.delete(index);drawController();if(capture){captureRelease();return}if(k==='BUTTON_A'&&d.nativeMenu&&$('potionPicker').hidden&&$('socketPicker').hidden&&$('skillConfirm').hidden)send('nav','upAccept');if(index===4&&!l1Used&&!mode&&(!d.nativeMenu||activeBindings().L1?.value==='itemLock'))runAssigned('L1')}
 };
 window.resetPad=()=>{localHeld.clear();drawController()};
+const nativeButtonNames=['A','B','X','Y','L1','R1','L2','R2','Select','Start','L3','R3','Up','Down','Left','Right','Home'];
+function nativeBindingLabel(value){
+ if(value==null)return 'Unavailable';if(value==='')return 'Unassigned';
+ if(value.startsWith('s:'))return d.catalog?.find(x=>x.tid===value.slice(2))?.name||'Skill '+value.slice(2);
+ if(value.startsWith('m:'))return 'Macro row '+(Number(value.slice(2))+1);
+ if(value.startsWith('k:'))return 'Key '+value.slice(2).replace(':s',' + Shift').replace(':a',' + Alt');
+ return ({act:'Interact / attack',macro:'Attack macro',buffs:'Buffs',interact:'Interact',menu:'Menu',lock:'Lock item'})[value]||'Unknown action';
+}
 function drawGuide(){
- const actionFor=(key,fallback)=>{const b=activeBindings()[key];return b?.type==='action'?(actionLabels[b.value]||b.value):b?.type==='macro'?'Macro row '+(+b.value+1):b?.type==='spell'?(d.slots?.find(s=>s.id===b.value)?.name||'Assigned skill'):fallback};
- const entries=[['Left stick','Move'],['Right stick','Camera'],['L3',actionFor('L3','Target next')],['R3',actionFor('R3','Basic attack')],['Start',actionFor('START','Game menu')],['Select',actionFor('SELECT','Companion navigation')],['↑',actionFor('UP','Navigate menus')],['↓',actionFor('DOWN','Navigate menus')],['←',actionFor('LEFT','Navigate menus')],['→',actionFor('RIGHT','Navigate menus')],['A',actionFor('A4','Interact / skill')],['B',actionFor('A5','Back / skill')],['X',actionFor('4','Skill')],['Y',actionFor('5','Skill')],['L1',actionFor('L1','L1 combinations')],['R1',actionFor('6','Skill')],['L2',actionFor('A3','Skill')],['R2',actionFor('A6','Skill')],...Object.entries(keys).filter(([key])=>key.startsWith('C4_')&&activeBindings()[key]).map(([key,label])=>[label,actionFor(key,'')])];
- const guide=$('controlGuide'), fingerprint=JSON.stringify(entries);
- if(guide.dataset.entries===fingerprint)return;guide.dataset.entries=fingerprint;
+ const settings=d.nativeSettings,guide=$('controlGuide');
+ if(!settings?.available){guide.textContent='Native controller settings are unavailable until the game update is installed.';return}
+ const entries=Object.entries(settings.bindings||{}).map(([key,value])=>[key.startsWith('C4_')?'L1 + '+(nativeButtonNames[Number(key.slice(3))]||key):nativeButtonNames[Number(key)]||key,nativeBindingLabel(value)]);
  guide.replaceChildren(...entries.map(([key,action])=>{const line=document.createElement('div');line.className='guideRow';const k=document.createElement('span');k.className='guideKey';k.textContent=key;const a=document.createElement('span');a.className='guideAction';a.textContent=action;line.append(k,a);return line}));
+ if(settings.unsupported?.length){const warning=document.createElement('p');warning.textContent='Some game mappings are not recognized by this preview.';guide.append(warning)}
 }
 function drawController(){
- drawGuide();
- if(d.lastPress?.at&&d.lastPress.at!==lastPress){
-  lastPress=d.lastPress.at;inspected=d.lastPress.button;
- }
- const live=new Set([...(d.pressed||[]),...localHeld]);
- document.querySelectorAll('[data-pad]').forEach(e=>e.classList.toggle('on',live.has(+e.dataset.pad)));
- if(inspected==null)return;
- const key=inspectedCombo||sourceFor[inspected], binding=activeBindings()[key];
- const spellName=id=>d.slots?.find(s=>s.id===id)?.name;
- const options=key&&d.online?[
-  ['default','Default action'],
-  ...Object.entries(actionLabels).filter(([value])=>value!=='itemLock'||!['A4','A5','START','UP','DOWN','LEFT','RIGHT','C4_0','C4_1'].includes(key)).map(([value,label])=>['action:'+value,label]),
-  ...(d.realRows||[]).map((_,i)=>['macro:'+i,'Row '+(i+1)+(d.buffRows?.includes(i)?' · Buff':'')])
-   .filter(([value])=>!Object.entries(macroBindings).some(([k,b])=>k!==key&&'macro:'+b.value===value)),
-  ...[...new Map((d.slots||[]).filter(s=>s.id&&!Object.entries(skillBindings).some(([k,b])=>k!==key&&b.value===s.id)).map(s=>[s.id,s])).values()].map(s=>['spell:'+s.id,s.name||'Skill'])
- ]:null;
- const layout=JSON.stringify([inspected,key,binding,options,d.nativeMenu]);
- if(controllerLayout===layout)return;
- controllerLayout=layout;
- $('controllerButton').textContent=inspectedCombo?keys[key]:document.querySelector('[data-pad="'+inspected+'"] text')?.textContent||'Controller';
- $('controllerCombo').hidden=!keys['C4_'+inspected];$('controllerCombo').textContent=inspectedCombo?'Single button':'L1 + '+(keys[sourceFor[inspected]]||'button');
+ drawGuide();document.querySelectorAll('[data-pad]').forEach(e=>e.classList.remove('on'));
+ $('controllerButton').textContent=inspected==null?'Controller':nativeButtonNames[inspected]||'Controller';
  $('controllerInfo').hidden=false;
- const uiAction=d.nativeMenu&&(inspected===0?'Confirm':inspected===1?'Back':null);
- $('controllerInfo').textContent=uiAction||(binding?.type==='action'?(actionLabels[binding.value]||binding.value):binding?.type==='macro'?'Macro row '+(+binding.value+1):binding?.type==='spell'?spellName(binding.value)||'Assigned skill':defaults[inspected]);
- $('controllerAssign').hidden=!options;
- if(options){
-  const choice=$('controllerChoice');
-  const groups=[['Defaults',options.filter(([v])=>v==='default')],['Actions',options.filter(([v])=>v.startsWith('action:'))],['Macros',options.filter(([v])=>v.startsWith('macro:'))],['Skills',options.filter(([v])=>v.startsWith('spell:'))]];
-  choice.replaceChildren(...groups.filter(([,items])=>items.length).map(([label,items])=>{const group=document.createElement('optgroup');group.label=label;group.replaceChildren(...items.map(([value,text])=>new Option(text,value)));return group}));
-  choice.value=binding?binding.type+':'+binding.value:'default';
- }
+ $('controllerInfo').textContent=!d.nativeSettings?.available?'Native controller settings unavailable. The game update is required.':inspected==null?'Tap a button to see its game binding. Configure bindings in the game.':nativeBindingLabel(d.nativeSettings.bindings?.[String(inspected)]);
+ $('controllerAssign').hidden=true;
 }
 $('controllerCombo').onclick=()=>{inspectedCombo=inspectedCombo?'':'C4_'+inspected;controllerLayout='';drawController()};
 $('controllerSave').onclick=()=>{
@@ -582,7 +569,7 @@ $('composer').onsubmit=e=>{
 let skillLayout='', skillNodes=[], skillCategory='All';
 function drawSkills(slots){
  const ordered=[], used=new Set();
- const displayedKeys=Object.entries(keys);
+ const displayedKeys=[];
  for(const [key,label] of displayedKeys){
   if(macroBindings[key]||actionBindings[key])continue;
   const binding=skillBindings[key];
@@ -627,7 +614,7 @@ function drawSkills(slots){
 function drawMacros(){
  const buffRows=d.buffRows||[], attackRow=Number(d.attackRow);
  $('macroRows').replaceChildren(...Array.from({length:4},(_,i)=>btn(
-  'Row '+(i+1)+(attackRow===i?' · Attack':'')+(buffRows.includes(i)?' · Buff':'')+(Object.entries(macroBindings).filter(([,b])=>b.value===String(i)).map(([k])=>' · '+keys[k]).join('')),
+  'Row '+(i+1)+(attackRow===i?' · Attack':'')+(buffRows.includes(i)?' · Buff':'')+(Object.entries(d.nativeSettings?.bindings||{}).filter(([,v])=>v==='m:'+i).map(([k])=>' · '+(nativeButtonNames[Number(k)]||k)).join('')),
   ()=>{row=i;macroSlot=0;pickMacro=false;closeSkillConfirm();updateChoices(true);drawMacros()},i===row)));
  const skills=d.catalog||[], slots=d.realRows?.[row]||[];
  $('macroSlots').replaceChildren(...slots.map((s,i)=>{
@@ -785,18 +772,12 @@ window.renderGame=state=>{
  document.querySelector('[data-tab="macros"]').setAttribute('aria-label',!d.online||d.macro==null?'Macros, status unavailable':macroActive?'Macros, attack active'+(activeRow?', row '+activeRow:''):'Macros, attack off');
  if(document.activeElement!==$('effectsSetting')&&d.effects!=null)$('effectsSetting').value=d.effects;
  $('effectsSetting').disabled=!d.online;
- document.body.classList.remove('native-pad');
- document.querySelectorAll('.nativeHint').forEach(el=>el.hidden=true);
+ document.body.classList.add('native-pad');
+ document.querySelectorAll('.nativeHint').forEach(el=>{el.hidden=false;el.textContent=d.nativeSettings?.available?'Controller bindings are managed in the game under Settings → Controller.':'Native controller settings not detected. This preview requires the announced game update.'});
  drawController();
- changed('nativeControls',d.nativeMenu||'',menu=>{
-  if(menu&&mode)toggleNav();
-  $('nativeControls').hidden=!menu;
-  $('nativeControls').replaceChildren(...(menu?[['↑','up'],['↓','down'],['←','left'],['→','right'],['A','accept'],['B','back']].map(([label,key])=>btn(label,()=>send('nav',key))):[]));
- });
  for(const [id,label] of [['level','Level'],['hp','HP'],['mp','MP'],['xp','EXP']])$(id).textContent=d[id]||label+' —';
  document.querySelectorAll('.fill').forEach((e,i)=>e.style.width=Math.min(100,Math.max(0,d.bars?.[i]||0))+'%');
  if(!d.online){restored=false;lastSelect=null;mapRequested=false}
- if(d.online&&!pending&&!same(d.bindings,activeBindings())&&Date.now()-(restored||0)>2000){restored=Date.now();send('bind',activeBindings())}
  const status=$('macroState');
  status.textContent=d.online?(d.macro===true?(activeRow?'Attack macro · Row '+activeRow+' ON':'Attack macro ON'):d.macro===false?'Attack macro OFF':''):'USB link unavailable';
  if(d.lastMacro&&!d.lastMacro.ok&&Date.now()-d.lastMacro.at<2200)status.textContent='Row '+(+d.lastMacro.row+1)+' did not start. Check its slots.';
