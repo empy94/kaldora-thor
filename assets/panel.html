@@ -739,9 +739,9 @@ $('closeItemDetails').onclick=()=>{
 };
 $('itemLock').onclick=()=>{const item=d.itemDetails;if(!item||item.lockPending)return;send('itemLock',{id:item.id,locked:!!item.locked})};
 function drawItemDetails(item){
- const lock=$('itemLock');lock.hidden=!item;lock.disabled=!item||!!item.lockPending;lock.classList.toggle('locked',!!item?.locked);
+ const lock=$('itemLock');lock.hidden=!item||!!item.merchant;lock.disabled=!item||!!item.merchant||!!item.lockPending;lock.classList.toggle('locked',!!item?.locked);
  lock.setAttribute('aria-pressed',item?.locked?'true':'false');lock.querySelector('span').textContent=item?.lockPending?'Updating…':item?.locked?'Unlock':'Lock';
- $('itemLockState').textContent=item?(item.lockPending?'Updating…':item.locked?'Locked':'Unlocked'):'';
+ $('itemLockState').textContent=item&&!item.merchant?(item.lockPending?'Updating…':item.locked?'Locked':'Unlocked'):'';
  if(item?.id!==lastItemDetail){dismissedItem=null;lastItemDetail=item?.id||null}
  $('itemOverlay').hidden=!item||dismissedItem===item.id;
  if(!item){$('itemCards').replaceChildren();return}

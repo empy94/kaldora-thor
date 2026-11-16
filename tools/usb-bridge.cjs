@@ -206,6 +206,14 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   }
   state.navigate=navigate;
   state.menu=()=>panel()?.id||"";
+  state.selectedShopItem=()=>{
+    if(!highlighted?.isConnected||!highlighted.matches('#shop-list .row')||
+       typeof shopItems!=='function'||typeof shopTab==='undefined')return null;
+    const rows=[...document.querySelectorAll('#shop-list .row')];
+    const index=rows.indexOf(highlighted);
+    const items=shopItems().filter(item=>shopTab==='All'||item.cat===shopTab);
+    return index>=0&&index<items.length?{item:items[index],slot:highlighted}:null;
+  };
   state.selectedItem=()=>{
     const current=panel(),selector='#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot';
     if(!current||!highlighted)return null;
@@ -473,10 +481,11 @@ function view(install) {
   }
   let itemDetails=null;
   try{
-    const slot=window.__thor.selectedItem?.();
+    const shopSelection=window.__thor.selectedShopItem?.();
+    const slot=shopSelection?.slot||window.__thor.selectedItem?.();
     const itemId=Number(slot?.dataset.item);
-    const item=itemId&&((typeof inv!=='undefined'&&inv.items?.find(x=>x.id===itemId))||
-      (typeof bankItems!=='undefined'&&bankItems.find(x=>x.id===itemId)));
+    const item=shopSelection?.item||(itemId&&((typeof inv!=='undefined'&&inv.items?.find(x=>x.id===itemId))||
+      (typeof bankItems!=='undefined'&&bankItems.find(x=>x.id===itemId))));
     if(item&&typeof tipCard==='function'){
       const equipped=!item.equipped&&item.part&&typeof inv!=='undefined'?inv.items.find(x=>x.equipped&&x.part===item.part):null;
       const build=(value,heading,comparison,hint)=>{
@@ -486,7 +495,7 @@ function view(install) {
           kind:typeof el.className==='string'?el.className:'',
           text:el.classList.contains('row')||el.classList.contains('name')?[...el.children].map(x=>x.textContent.trim()).filter(Boolean).join(el.classList.contains('row')?'  ':' '):el.textContent.trim()
         })).filter(line=>line.text);
-        const art=value.id===item.id?slot.querySelector('img.icon'):[...document.querySelectorAll('#doll-slots [data-item]')].find(el=>el.dataset.item===String(value.id))?.querySelector('img.icon');
+        const art=value===item?slot.querySelector('img.icon'):[...document.querySelectorAll('#doll-slots [data-item]')].find(el=>el.dataset.item===String(value.id))?.querySelector('img.icon');
         const socketNodes=[...card.querySelectorAll('.stones > img,.stones > .stone')];
         const names=Array.isArray(value.stones)?value.stones:[];
         const sockets=socketNodes.map((node,index)=>{
@@ -501,12 +510,12 @@ function view(install) {
       };
       const pending=window.__thor.lockPending;
       if(pending?.id===String(item.id)&&(!!item.locked!==pending.expected||Date.now()>=pending.until))window.__thor.lockPending=null;
-      const part=window.__thor.socketGearType?.(item);
+      const part=!shopSelection&&window.__thor.socketGearType?.(item);
       const socketOptions=part&&inv.items.includes(item)&&item.sockets>(item.stones||[]).length?inv.items.filter(x=>window.__thor.socketCompatible(item,x)).map(x=>{
         const art=icon('item',x.tid)?.src||'',risk=typeof stoneRisk==='function'?stoneRisk(x,item):null;
         return {id:String(x.id),name:x.name,count:x.count,icon:art.startsWith(location.origin+'/')?art:'',description:(x.opts||[]).join(' · '),risk:risk?{chance:risk.chance||'',note:risk.note||''}:null};
       }):[];
-      itemDetails={id:String(item.id),locked:!!item.locked,lockPending:window.__thor.lockPending?.id===String(item.id),socketOptions,socketSupported:!!part&&inv.items.includes(item),cards:[
+      itemDetails={id:shopSelection?'shop:'+String(item.tid):String(item.id),merchant:!!shopSelection,locked:!!item.locked,lockPending:!shopSelection&&window.__thor.lockPending?.id===String(item.id),socketOptions,socketSupported:!!part&&inv.items.includes(item),cards:[
         ...(equipped?[build(equipped,'Equipped',null,'')]:[]),
         build(item,equipped?'This item':'',equipped,slot.dataset.hint)
       ]};
