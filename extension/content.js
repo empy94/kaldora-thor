@@ -75,6 +75,6 @@
       // Firefox can deny an event without browser user activation.
     } finally { entering = false; }
   }
-  for (const type of ['pointerup', 'keydown', 'click'])
+  for (const type of ['pointerdown', 'pointerup', 'touchend', 'keydown', 'click'])
     window.addEventListener(type, enterFullscreen, true);
 })();
