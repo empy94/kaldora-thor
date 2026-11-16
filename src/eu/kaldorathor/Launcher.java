@@ -11,7 +11,7 @@ import android.view.Display;
 import android.widget.Toast;
 
 public final class Launcher extends Activity {
-    static final String GAME = "https://play.kaldora.eu/";
+    static final String GAME = "https://play.kaldora.eu/?browser=1";
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);

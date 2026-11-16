@@ -145,6 +145,24 @@ button:active{filter:brightness(1.2)}
 .socketGroup .socket span{font-size:11px;line-height:1.25;overflow-wrap:anywhere;color:#d3e2de}
 .socketGroup .socket.empty span{color:#75888b}
 
+
+/* Clear hierarchy and generous touch targets for the Thor's lower display. */
+nav button{min-height:48px;font-size:13px}nav button[aria-selected=true]{border-color:#9acbd6;box-shadow:inset 0 -3px #a4d8e6,0 1px 8px #6fb4c02e}
+section{padding:10px 12px;border-color:#405762}
+#skills .row{grid-template-columns:repeat(4,minmax(0,1fr));justify-items:center;gap:10px}
+#skills .slot{width:100%;min-height:68px}#skills .slot .art{width:50px;height:50px}
+#macroSlots{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}#macroSlots .slot{min-height:64px}
+#controls .controller{grid-template-columns:minmax(0,1.25fr) minmax(175px,1fr);gap:14px;margin:12px 0}
+#controls .controller svg{max-height:360px}.controller [data-pad]{cursor:pointer}.controller [data-pad]:active :is(circle,rect,path){fill:#759da9}
+#controls .controllerDetail{padding:12px;border:1px solid #405963;border-radius:6px;background:linear-gradient(160deg,#20333c,#13232b)}
+#controls .controllerDetail strong{font-size:16px}.controllerDetail p{font-size:13px;color:#b6c9d0}
+#controllerAssign button,#controllerAssign select{min-height:44px}
+#controlReference{border:1px solid #40555e;border-radius:5px;margin:4px 0 10px;background:#101e25}
+#controlReference summary{min-height:44px;display:flex;align-items:center;cursor:pointer;padding:0 12px;color:#cee0e5;font-weight:600;list-style:none}
+#controlReference summary::after{content:'+';margin-left:auto;font-size:19px;color:var(--gold)}#controlReference[open] summary::after{content:'−'}
+#controlGuide{padding:0 12px 8px;margin:0;gap:3px 12px}.guideRow{min-height:40px}.guideKey{min-width:48px}
+#controls>.tools:first-child{align-items:center}#controls>.tools:first-child label{color:#c7d8dc;font-weight:600}
+#controls>.tools:last-child button{min-height:44px}
 </style>
 
 <nav aria-label="Panels">
@@ -162,7 +180,6 @@ button:active{filter:brightness(1.2)}
 <section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="macroRows" class="tools"></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button></div><p id="macroState"></p></section>
 <section id="controls" hidden>
 <div class="tools"><label for="effectsSetting">Effects</label><select id="effectsSetting" aria-label="Effects"><option value="0">Off</option><option value="1">Minimal</option><option value="2">Full</option></select></div>
-<div id="controlGuide" class="controlGuide"></div>
 <div class="controller">
 <svg viewBox="0 0 360 222" role="img" aria-label="Xbox-style controller showing inputs">
  <path class="shell" d="M87 39c-24 0-42 17-51 44l-24 82c-11 42 24 62 50 44l52-45c10-9 23-13 38-13h56c15 0 28 4 38 13l52 45c26 18 61-2 50-44l-24-82c-9-27-27-44-51-44z"/>
@@ -188,10 +205,11 @@ button:active{filter:brightness(1.2)}
 </svg>
 <div class="controllerDetail">
  <strong id="controllerButton">Press a button</strong>
- <p id="controllerInfo" hidden></p>
+ <p id="controllerInfo">Tap a button on the controller or press it to configure.</p>
  <div id="controllerAssign" hidden><button id="controllerCombo" hidden>L1 combination</button><select id="controllerChoice" aria-label="Assign action"></select><button id="controllerSave">Save binding</button><button id="controllerReset">Reset button</button></div>
 </div>
 </div>
+<details id="controlReference"><summary>All controls</summary><div id="controlGuide" class="controlGuide"></div></details>
 <div class="tools"><button id="openGameMenu">Game menu</button><button id="resetAllControls">Reset all bindings</button><button id="confirmResetControls" hidden>Confirm reset</button></div>
 <div id="nativeControls" class="tools" hidden></div>
 </section>
@@ -242,7 +260,7 @@ function select(i){
 tabs.forEach((b,i)=>b.onclick=()=>{if(d.itemDetails){dismissedItem=d.itemDetails.id;$('itemOverlay').hidden=true}select(i)});select(0);
 function btn(label,fn,on=false){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;if(on)b.classList.add('active');return b}
 function addIcon(node,src){if(src){const i=document.createElement('img');i.src=src;i.alt='';node.append(i)}}
-function controls(){return [...document.querySelectorAll('section:not([hidden]) button:not(:disabled):not([hidden]),section:not([hidden]) select,section:not([hidden]) input')].filter(el=>el.getClientRects().length)}
+function controls(){return [...document.querySelectorAll('section:not([hidden]) button:not(:disabled):not([hidden]),section:not([hidden]) select,section:not([hidden]) input,section:not([hidden]) summary')].filter(el=>el.getClientRects().length)}
 function focusAt(index){
  const c=controls();if(!c.length)return;
  cursor=(index+c.length)%c.length;c[cursor].focus({preventScroll:true});c[cursor].scrollIntoView({block:'nearest'});

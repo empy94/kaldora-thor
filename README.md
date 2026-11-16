@@ -12,9 +12,11 @@ The companion's saved skill and macro bindings take priority over the game's con
 
 The **Sets** panel shows the four sets stored by Kaldora. Tap a saved set to equip it, or open the game's editor to create and update sets. When an inventory item is highlighted with the D-pad, the lower screen shows its native item details, occupied and empty sockets, and, where available, the equipped-item comparison. Sets can include equipment and the skill bar. The lower-screen joystick bridge forwards movement and right-stick camera input when the companion has focus.
 
-A buff row uses the game's native buffs action when available, including the game's hero-buff selection. The Map panel displays the map supplied by Kaldora. The game may require installation as a standalone web app before it allows entry.
+A buff row uses the game's native buffs action when available, including the game's hero-buff selection. The Map panel displays the map supplied by Kaldora. The launcher uses the game’s supported browser mode, so a separate installed web-app icon is not required. On the login screen, use Play fullscreen if the browser bars are visible.
 
 The Controls panel also exposes the game’s Effects setting (Off, Minimal or Full). On touch devices, the bridge restores the saved Effects and buff-effects choices after the game applies its mobile defaults. While a game window is open, use the D-pad to navigate, left/right to adjust a selection or slider, A to activate, and B to close.
+
+The Controls panel places the controller and binding editor first; the complete button guide can be expanded below. Skills and macro slots use larger touch targets.
 
 The APK uses English labels. The PC and USB debugging are required for live game data and actions, including restoration of graphics settings after a game reload.
 
