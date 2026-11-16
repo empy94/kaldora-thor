@@ -363,12 +363,12 @@ function view(install) {
     const copy=document.createElement('canvas');copy.width=400;copy.height=Math.max(1,Math.min(480,Math.round(400*c.height/c.width)));
     copy.getContext('2d').drawImage(c,0,0,copy.width,copy.height);map=copy.toDataURL('image/webp',.70);
   }catch{}
-  const icon=x=>{const src=x.querySelector('img.icon')?.src||'';return src.startsWith(location.origin+'/')?src:''};
+  const domIcon=x=>{const src=x.querySelector('img.icon')?.src||'';return src.startsWith(location.origin+'/')?src:''};
   const inventory={};
   for(const name of ['inv','pet','bank']){
     inventory[name]={
       tabs:[...(q('#'+name+'-tabs')?.querySelectorAll('button')||[])].map(b=>({name:b.textContent.trim(),on:b.classList.contains('on')})),
-      slots:[...(q('#'+name+'-grid')?.children||[])].map(x=>({id:x.dataset.item||'',icon:icon(x),count:x.querySelector('.count')?.textContent||'',hint:x.dataset.hint||''}))
+      slots:[...(q('#'+name+'-grid')?.children||[])].map(x=>({id:x.dataset.item||'',icon:domIcon(x),count:x.querySelector('.count')?.textContent||'',hint:x.dataset.hint||''}))
     };
   }
   const npc=q('#npc-menu.show')?{name:txt('#npc-name'),choices:[...q('#npc-functions').querySelectorAll('button')].map(b=>({label:b.textContent.trim(),disabled:b.disabled}))}:null;
@@ -377,7 +377,7 @@ function view(install) {
   if(typeof skillList!=='undefined'&&typeof bar!=='undefined'&&bar&&typeof BAR_COLS!=='undefined') {
     for(const skill of skillList){skillNames.set(String(skill.id),skill.name);skillGroups.set(String(skill.id),skill.passive?'Passive':(SKILL_TABS.find(([id])=>id===skillGroup(skill))?.[1]||'Other'));}
     catalog=skillList.filter(s=>!s.passive&&skillGroup(s)!==6).map(s=>({tid:String(s.tid),name:s.name,icon:iconFor(s)}));
-    function iconFor(skill){const node=skillTile(skill);return icon(node)}
+    function iconFor(skill){const node=skillTile(skill);return domIcon(node)}
     realRows=[0,1,2,3].map(row=>BAR_COLS.map((col)=>{
       const tid=bar.slots[10*row+col]||0;
       return {tid:String(tid),item:tid<0};
@@ -417,9 +417,20 @@ function view(install) {
       ]};
     }
   }catch{}
+  let potions=null;
+  if(typeof bar!=='undefined'&&Array.isArray(bar?.potions)&&typeof inv!=='undefined'&&Array.isArray(inv?.items)&&typeof icon==='function'){
+    const bag=inv.items.filter(item=>!item.equipped&&!item.shop&&!item.part&&!item.bank&&!item.trade&&Number(item.count)>0&&[1,2,4].includes(Number(item.pot)));
+    const art=tid=>{const src=icon('item',tid)?.src||'';return src.startsWith(location.origin+'/')?src:''};
+    potions=[0,1].map(slot=>{
+      const tid=Number(bar.potions[slot]?.tid)||0,compatible=bag.filter(item=>Number(item.pot)===slot+1||Number(item.pot)===4),byType=new Map();
+      for(const item of compatible){const existing=byType.get(item.tid);if(existing)existing.count+=Number(item.count)||0;else byType.set(item.tid,{id:String(item.id),tid:Number(item.tid),name:String(item.name||''),count:Number(item.count)||0,icon:art(item.tid),description:String(item.opts?.[0]||'')})}
+      const options=[...byType.values()],selected=options.find(item=>item.tid===tid);
+      return {slot,tid,name:selected?.name||(!tid?'Not assigned':'No longer in inventory'),count:selected?.count||0,icon:tid?art(tid):'',options};
+    });
+  }
   const sets=typeof gearSets!=='undefined'&&Array.isArray(gearSets)?
     Array.from({length:4},(_,i)=>{const set=gearSets[i];return {name:set?.n||'Set '+(i+1),saved:!!set,gear:!!set?.g,skills:!!set?.b}}):null;
-  return {online:true,effects:typeof settings!=='undefined'?String(settings.effects):null,sets,itemDetails,pressed:window.__thor.pressed||[],lastPress:window.__thor.lastPress,
+  return {online:true,potions,effects:typeof settings!=='undefined'?String(settings.effects):null,sets,itemDetails,pressed:window.__thor.pressed||[],lastPress:window.__thor.lastPress,
     nativePad:typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function',
     nativePadMap:typeof pad!=='undefined'&&Array.isArray(pad?.map)?pad.map.map(value=>({value,label:(typeof PAD_ACTIONS!=='undefined'?PAD_ACTIONS.flatMap(group=>group[1]).find(option=>option[0]===value)?.[1]:null)||value||'Nothing'})):[],
     buffRows:typeof bar!=='undefined'&&bar?[bar.bRow??1,bar.bRow2??-1]:[],
@@ -465,6 +476,16 @@ function action(a) {
   if(a.type==='nav')return window.__thor?.navigate(a.value)||false;
   if(a.type==='combat')return window.__thor?.combat(a.value)||false;
   if(a.type==='combo'){if(window.__thor?.menu())return false;return window.__thor?.performBinding(a.value)||false}
+  if(a.type==='potionAssign'){
+    if(typeof inv==='undefined'||typeof bar==='undefined'||!Array.isArray(inv?.items)||!Array.isArray(bar?.potions))return false;
+    const {slot,id}=a.value;
+    const item=inv.items.find(x=>String(x.id)===id&&!x.equipped&&!x.shop&&!x.part&&!x.bank&&!x.trade&&Number(x.count)>0&&(Number(x.pot)===slot+1||Number(x.pot)===4));
+    const target=q('#potions .potion:nth-child('+(slot+1)+') .skill');
+    if(!item||!target)return false;
+    const transfer=new DataTransfer();transfer.setData('text/plain',id);
+    target.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));
+    return Number(bar.potions[slot]?.tid)===Number(item.tid);
+  }
   if(a.type==='gear'){
     if(typeof gearSets==='undefined'||typeof setWear!=='function')return false;
     const set=gearSets[a.value];
@@ -594,6 +615,7 @@ function valid(a) {
     });
   }
   if(a.type==='macroSlot')return a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<4&&Number.isInteger(a.value.slot)&&a.value.slot>=0&&a.value.slot<10&&Number.isInteger(a.value.tid)&&a.value.tid>=0;
+  if(a.type==='potionAssign')return a.value&&Number.isInteger(a.value.slot)&&a.value.slot>=0&&a.value.slot<=1&&digits(a.value.id);
   if(a.type==='gear')return Number.isInteger(a.value)&&a.value>=0&&a.value<4;
   if(a.type==='gearEdit')return true;
   if(a.type==='move'){

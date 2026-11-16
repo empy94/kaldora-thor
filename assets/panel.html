@@ -171,6 +171,22 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 .macroBadge{display:block;margin-top:3px;padding:1px 5px;border:1px solid #485f67;border-radius:3px;background:#142329;color:#a9bbc0;font-size:11px;line-height:1.1;white-space:nowrap}
 .macroBadge.on{color:#f2e8ca;border-color:#b59961;background:#4a3f29}
 .macroBadge.unknown{color:#7e9399;border-color:#384c53}
+
+/* Native potion slots stay visible while the rest of the panel changes. */
+#potionBar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.potionQuick{display:flex;align-items:center;gap:8px;text-align:left;min-width:0;min-height:45px;padding:4px 8px;border-radius:5px;background:linear-gradient(#263a42,#16252d)}
+.potionQuick .potionKind{flex:none;font-size:11px;font-weight:800;letter-spacing:.04em;color:#efa9a0}.potionQuick.mp .potionKind{color:#9bdafe}
+.potionQuick img,.potionOption img{width:35px;height:35px;object-fit:contain;border:1px solid #64767b;border-radius:4px;background:#0a151a;flex:none}
+.potionQuick .potionName{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#e3edf0}
+.potionQuick .potionCount{flex:none;color:#c8d9dd;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}.potionQuick.empty .potionName,.potionQuick.empty .potionCount{color:#a6b5b8}
+#potionPicker{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:12px;background:#050a10df}#potionPicker[hidden]{display:none}
+.potionSheet{display:flex;flex-direction:column;width:min(100%,700px);max-height:100%;padding:12px;border:1px solid #6b8189;border-radius:7px;background:linear-gradient(#243b45,#111f27);box-shadow:0 10px 35px #000b}
+.potionSheetHeader{display:flex;align-items:center;gap:12px;margin-bottom:10px}.potionSheetHeader strong{flex:1;color:#e6f2f4;font-size:16px}.potionSheetHeader button{flex:0 0 auto;padding:0 14px;min-height:44px}
+#potionOptions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;overflow:auto;min-height:0}
+.potionOption{display:flex;align-items:center;gap:9px;min-width:0;min-height:58px;padding:7px;text-align:left;background:linear-gradient(#2a4149,#172830)}.potionOption img{width:42px;height:42px}
+.potionOption .potionDetails{min-width:0;flex:1}.potionOption strong,.potionOption small{display:block;overflow:hidden;text-overflow:ellipsis}.potionOption strong{font-size:12px;white-space:nowrap}.potionOption small{margin-top:3px;color:#acc4ca;font-size:11px}.potionOption .stock{color:#d3c28e;font-size:12px;font-variant-numeric:tabular-nums}.potionOption.active{border-color:#d6b269;box-shadow:inset 0 0 0 1px #d6b26980}
+#potionEmpty{margin:8px 4px;color:#bacbd0;font-size:13px}
+@media(max-width:420px){#potionOptions{grid-template-columns:1fr}.potionQuick .potionName{font-size:11px}}
 </style>
 
 <nav aria-label="Panels">
@@ -181,6 +197,7 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 <button data-tab="controls"><img src="settings.webp" alt="">Controls</button>
 <button data-tab="sets"><img src="bag.webp" alt="">Sets</button>
 </nav>
+<div id="potionBar" aria-label="Potion slots"><button id="potionHp" class="potionQuick hp" type="button" disabled></button><button id="potionMp" class="potionQuick mp" type="button" disabled></button></div>
 <div id="vitals" hidden><div id="level">Level —</div><div class="meter"><b id="hp">HP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="mp">MP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="xp">EXP —</b><div class="track"><div class="fill"></div></div></div></div>
 <section id="sorts"><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="skillCategories" class="chips"></div><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
 <section id="map" hidden><p id="mapHint">Waiting for the game map…</p><img id="mapImage" alt="Kaldora map" hidden></section>
@@ -224,6 +241,7 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 <section id="sets" hidden><div id="gearSets" class="gearSets"></div><div class="tools"><button id="editGearSets">Edit sets in game</button></div></section>
 <section id="itemOverlay" hidden aria-label="Item details"><div class="itemHeader"><button id="closeItemDetails">Back to panel</button></div><div id="itemCards"></div></section>
 <section id="menus" hidden><div id="npc" hidden></div><div class="tools"><button id="inventory">Bag</button><button id="pet">Pet</button><button id="bank">Storage</button></div><div id="bagTabs" class="tools"></div><div id="bagGrid"></div><p id="itemInfo"></p><div class="tools"><button id="moveItem" hidden>Move here</button><button id="clearItem" hidden>Cancel move</button></div></section>
+<div id="potionPicker" hidden role="dialog" aria-modal="true" aria-labelledby="potionPickerTitle"><div class="potionSheet"><div class="potionSheetHeader"><strong id="potionPickerTitle"></strong><button id="closePotionPicker" type="button">Close</button></div><div id="potionOptions"></div><p id="potionEmpty" hidden>No compatible potions in your inventory.</p></div></div>
 <div id="captureDialog" hidden role="dialog" aria-modal="true" aria-label="Record controller button"><div class="captureCard"><strong>Press a controller button</strong><p id="captureMessage">Release the button, then confirm.</p><div class="tools"><button id="captureConfirm" disabled>Confirm</button><button id="captureForce" hidden>Replace binding</button><button id="captureCancel">Cancel</button></div></div></div><output id="feedback" role="status"></output>
 <script>
 const $=id=>document.getElementById(id), tabs=[...document.querySelectorAll('nav button')];
@@ -268,7 +286,7 @@ function select(i){
 tabs.forEach((b,i)=>b.onclick=()=>{if(d.itemDetails){dismissedItem=d.itemDetails.id;$('itemOverlay').hidden=true}select(i)});select(0);
 function btn(label,fn,on=false){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;if(on)b.classList.add('active');return b}
 function addIcon(node,src){if(src){const i=document.createElement('img');i.src=src;i.alt='';node.append(i)}}
-function controls(){return [...document.querySelectorAll('section:not([hidden]) button:not(:disabled):not([hidden]),section:not([hidden]) select,section:not([hidden]) input,section:not([hidden]) summary')].filter(el=>el.getClientRects().length)}
+function controls(){const selector=!$('potionPicker').hidden?'#potionPicker button:not(:disabled)':'#potionBar button:not(:disabled),section:not([hidden]) button:not(:disabled):not([hidden]),section:not([hidden]) select,section:not([hidden]) input,section:not([hidden]) summary';return [...document.querySelectorAll(selector)].filter(el=>el.getClientRects().length)}
 function focusAt(index){
  const c=controls();if(!c.length)return;
  cursor=(index+c.length)%c.length;c[cursor].focus({preventScroll:true});c[cursor].scrollIntoView({block:'nearest'});
@@ -286,6 +304,13 @@ function runAssigned(key){
 window.padKey=k=>{
  const index=physical[k];
  if(index!=null){localHeld.add(index);inspected=index;inspectedCombo='';drawController();if(capture){capturePress(index);return}}
+ if(!$('potionPicker').hidden){
+  if(k==='BUTTON_B'){closePotionPicker();return}
+  if(k==='DPAD_LEFT'||k==='DPAD_UP')focusAt(cursor<0?0:cursor-1);
+  if(k==='DPAD_RIGHT'||k==='DPAD_DOWN')focusAt(cursor+1);
+  if(k==='BUTTON_A'){if(cursor<0)focusAt(0);else controls()[cursor]?.click()}
+  return;
+ }
  const native={DPAD_UP:'up',DPAD_DOWN:'down',DPAD_LEFT:'left',DPAD_RIGHT:'right',DPAD_CENTER:'accept',BUTTON_A:'downAccept',BUTTON_B:'back'};
  if(d.nativeMenu){if(k==='BUTTON_START'){send('nav','start');return}if(native[k]){if(mode)toggleNav();send('nav',native[k]);return}}
  if(mode){
@@ -372,7 +397,7 @@ let inspected, inspectedCombo='', lastPress, controllerLayout='';
 document.querySelectorAll('[data-pad]').forEach(el=>el.addEventListener('click',()=>{inspected=Number(el.dataset.pad);inspectedCombo='';controllerLayout='';drawController()}));
 window.padRelease=k=>{
  const index=physical[k];
- if(index!=null){localHeld.delete(index);drawController();if(capture){captureRelease();return}if(k==='BUTTON_A'&&d.nativeMenu)send('nav','upAccept');if(index===4&&!l1Used&&!mode&&!d.nativeMenu)runAssigned('L1')}
+ if(index!=null){localHeld.delete(index);drawController();if(capture){captureRelease();return}if(k==='BUTTON_A'&&d.nativeMenu&&$('potionPicker').hidden)send('nav','upAccept');if(index===4&&!l1Used&&!mode&&!d.nativeMenu)runAssigned('L1')}
 };
 window.resetPad=()=>{localHeld.clear();drawController()};
 function drawGuide(){
@@ -639,6 +664,36 @@ function drawItemDetails(item){
   return container;
  }));
 }
+let potionPickerSlot=null;
+function closePotionPicker(){potionPickerSlot=null;$('potionPicker').hidden=true}
+$('closePotionPicker').onclick=closePotionPicker;
+$('potionPicker').onclick=e=>{if(e.target===$('potionPicker'))closePotionPicker()};
+function drawPotionsPanel(potions){
+ for(let slot=0;slot<2;slot++){
+  const button=$(slot?'potionMp':'potionHp'),item=potions?.[slot];button.disabled=!d.online||!item;
+  button.classList.toggle('empty',!item?.tid||!item.count);
+  const kind=document.createElement('span');kind.className='potionKind';kind.textContent=slot?'MP':'HP';
+  const image=document.createElement('img');image.alt='';image.hidden=!item?.icon;if(item?.icon)image.src=item.icon;
+  const name=document.createElement('span');name.className='potionName';name.textContent=item?.name||'Unavailable';
+  const count=document.createElement('span');count.className='potionCount';count.textContent=item?.tid?'× '+(item.count||0):'';
+  button.replaceChildren(kind,image,name,count);button.setAttribute('aria-label',(slot?'Mana':'Health')+' potion: '+(item?.name||'Unavailable')+(item?.tid?', '+(item.count||0)+' remaining':''));
+  button.onclick=()=>{potionPickerSlot=slot;cursor=-1;$('potionPicker').hidden=false;drawPotionOptions()};
+ }
+ if(potionPickerSlot!=null){if(!d.online||!potions?.[potionPickerSlot])closePotionPicker();else drawPotionOptions()}
+}
+function drawPotionOptions(){
+ const slot=potionPickerSlot;if(slot==null)return;
+ const current=d.potions?.[slot],options=current?.options||[];
+ $('potionPickerTitle').textContent=slot?'Choose MP potion':'Choose HP potion';$('potionEmpty').hidden=options.length>0;
+ $('potionOptions').replaceChildren(...options.map(item=>{
+  const button=document.createElement('button');button.type='button';button.className='potionOption'+(item.tid===current.tid?' active':'');
+  if(item.icon){const img=document.createElement('img');img.src=item.icon;img.alt='';button.append(img)}
+  const details=document.createElement('span');details.className='potionDetails';const name=document.createElement('strong');name.textContent=item.name;
+  const desc=document.createElement('small');desc.textContent=item.description||'';details.append(name,desc);
+  const stock=document.createElement('span');stock.className='stock';stock.textContent='× '+item.count;button.append(details,stock);
+  button.onclick=()=>send('potionAssign',{slot,id:item.id},()=>{closePotionPicker();notice((slot?'MP':'HP')+' potion assigned')});return button;
+ }));
+}
 let rendered={};
 function changed(id,value,fn){const key=JSON.stringify(value);if(rendered[id]===key)return;rendered[id]=key;fn(value)}
 $('effectsSetting').addEventListener('change',e=>send('effects',e.target.value));
@@ -669,6 +724,7 @@ window.renderGame=state=>{
  if(d.online&&lastSelect!==null&&d.select!==lastSelect)toggleNav();
  lastSelect=d.online?d.select:null;
  if(tab===1&&d.online&&!mapRequested&&!d.map&&!pending){mapRequested=true;send('mapView','')}
+ changed('potions',[d.online,d.potions],()=>drawPotionsPanel(d.potions));
  changed('skills',[d.slots,d.nativePadMap,d.nativePad],()=>drawSkills(d.slots||[]));
  changed('map',d.map||'',m=>{$('mapImage').hidden=!m;$('mapHint').hidden=!!m;if(m)$('mapImage').src=m});
  changed('filters',d.filters||[],f=>$('filters').replaceChildren(...f.filter(x=>x.name).map(x=>btn(x.name,()=>send('filter',x.name),x.on))));
