@@ -20,6 +20,29 @@ public final class Companion extends Activity {
     private String previousDirection = "";
     private long lastMotion;
     private int previousHatX, previousHatY;
+    private final android.os.Handler motionHeartbeat = new android.os.Handler(android.os.Looper.getMainLooper());
+    private boolean motionActive;
+    private int motionDeviceId = -1;
+    private final Runnable repeatMotion = new Runnable() {
+        @Override public void run() {
+            if (!motionActive || !visible || !hasWindowFocus()) return;
+            // A disconnected controller must not leave movement held indefinitely.
+            if (motionDeviceId >= 0 && InputDevice.getDevice(motionDeviceId) == null) {
+                stopMotion();
+                return;
+            }
+            sendMotion(previousDirection);
+            motionHeartbeat.postDelayed(this, 150);
+        }
+    };
+
+    private void stopMotion() {
+        motionActive = false;
+        motionDeviceId = -1;
+        motionHeartbeat.removeCallbacks(repeatMotion);
+        previousDirection = "";
+        sendMotion("{\"dir\":[],\"camera\":[0,0]}");
+    }
 
     private void sendMotion(String direction) {
         latestDirection.set(direction);
@@ -87,6 +110,7 @@ public final class Companion extends Activity {
 
     @Override protected void onStop() {
         visible = false;
+        stopMotion();
         super.onStop();
     }
 
@@ -164,8 +188,7 @@ public final class Companion extends Activity {
         super.onWindowFocusChanged(hasFocus);
         if (!hasFocus && panel != null) {
             previousHatX = previousHatY = 0;
-            previousDirection = "";
-            sendMotion("{\"dir\":[],\"camera\":[0,0]}");
+            stopMotion();
             panel.evaluateJavascript("window.resetPad?.()", null);
         }
     }
@@ -202,6 +225,16 @@ public final class Companion extends Activity {
             }
             String value = input.toString();
             boolean moving = direction.length() > 0 || Math.hypot(cameraX, cameraY) > .12;
+            if (moving && !motionActive) {
+                motionActive = true;
+                motionDeviceId = event.getDeviceId();
+                motionHeartbeat.removeCallbacks(repeatMotion);
+                motionHeartbeat.postDelayed(repeatMotion, 150);
+            } else if (!moving && motionActive) {
+                motionActive = false;
+                motionDeviceId = -1;
+                motionHeartbeat.removeCallbacks(repeatMotion);
+            }
             if (!value.equals(previousDirection) || (moving && now - lastMotion > 45)) {
                 previousDirection = value;
                 lastMotion = now;
@@ -213,6 +246,7 @@ public final class Companion extends Activity {
     }
 
     @Override protected void onDestroy() {
+        motionHeartbeat.removeCallbacks(repeatMotion);
         motion.shutdownNow();
         updates.shutdownNow();
         panel.destroy();
