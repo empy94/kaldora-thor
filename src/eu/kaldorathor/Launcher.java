@@ -16,6 +16,13 @@ public final class Launcher extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         if (state != null) { finish(); return; }
+        String token = ConnectionKey.get(this);
+        new Thread(() -> {
+            try { LocalBridge.start(token); }
+            catch (java.io.IOException error) {
+                runOnUiThread(() -> Toast.makeText(this, "Local game connection unavailable", Toast.LENGTH_LONG).show());
+            }
+        }, "Start local connection").start();
         DisplayManager dm = getSystemService(DisplayManager.class);
         for (Display screen : dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION)) {
             if (screen.getDisplayId() == Display.DEFAULT_DISPLAY || !screen.isValid()) continue;
@@ -29,15 +36,11 @@ public final class Launcher extends Activity {
             break;
         }
         try {
-            Intent browser = new Intent(Intent.ACTION_VIEW, Uri.parse(GAME)).setPackage("com.android.chrome");
+            Intent browser = new Intent(Intent.ACTION_VIEW, Uri.parse(GAME + "#thor=" + token)).setPackage("org.mozilla.firefox");
             browser.putExtra(Browser.EXTRA_APPLICATION_ID, getPackageName());
             startActivity(browser, ActivityOptions.makeBasic().setLaunchDisplayId(Display.DEFAULT_DISPLAY).toBundle());
         } catch (RuntimeException unavailable) {
-            try {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(GAME)));
-            } catch (RuntimeException noBrowser) {
-                Toast.makeText(this, "No browser available", Toast.LENGTH_LONG).show();
-            }
+            Toast.makeText(this, "Firefox with the Kaldora Thor extension is required", Toast.LENGTH_LONG).show();
         }
         finish();
     }

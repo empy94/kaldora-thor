@@ -506,7 +506,17 @@ function view(install) {
   }
   const sets=typeof gearSets!=='undefined'&&Array.isArray(gearSets)?
     Array.from({length:4},(_,i)=>{const set=gearSets[i];return {name:set?.n||'Set '+(i+1),saved:!!set,gear:!!set?.g,skills:!!set?.b}}):null;
+  const chatLog=q('#chat-log');
+  const chatState=window.__thorChat ||= {session:String(performance.timeOrigin),seen:new WeakSet(),total:0};
+  for(const line of chatLog?.children||[]){
+    if(chatState.seen.has(line))continue;
+    chatState.seen.add(line);
+    const sender=line.querySelector('b[data-whisper]');
+    if(sender&&!line.classList.contains('system')&&!line.hasAttribute('data-ai')&&
+      !(line.classList.contains('ch-whisper')&&sender.textContent.startsWith('To ')))chatState.total++;
+  }
   return {online:true,potions,effects:typeof settings!=='undefined'?String(settings.effects):null,sets,itemDetails,pressed:window.__thor.pressed||[],lastPress:window.__thor.lastPress,
+    chatActivity:{session:chatState.session,total:chatState.total},
     nativePad:typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function',
     nativePadMap:typeof pad!=='undefined'&&Array.isArray(pad?.map)?pad.map.map(value=>({value,label:(typeof PAD_ACTIONS!=='undefined'?PAD_ACTIONS.flatMap(group=>group[1]).find(option=>option[0]===value)?.[1]:null)||value||'Nothing'})):[],
     buffRows:typeof bar!=='undefined'&&bar?[bar.bRow??1,bar.bRow2??-1]:[],attackRow:typeof bar!=='undefined'&&bar?bar.mRow??0:null,
@@ -521,7 +531,7 @@ function view(install) {
       return {row:b.dataset.row,on:b.classList.contains('run'),icons};
     }),
     filters:[...document.querySelectorAll('#chat-tabs button')].map(b=>({name:b.textContent.trim(),on:b.classList.contains('on')})),
-    chat:[...q('#chat-log').children].filter(x=>!x.hidden).slice(-25).map(x=>({text:x.textContent.trim().slice(0,300),color:getComputedStyle(x).color})),
+    chat:[...(chatLog?.children||[])].filter(x=>!x.hidden).slice(-25).map(x=>({text:x.textContent.trim().slice(0,300),color:getComputedStyle(x).color})),
     slots:[...document.querySelectorAll('#bar-rows .skill')].slice(0,40).map(x=>{
       const src=x.querySelector('img.icon')?.src||'';
       return {key:x.querySelector('.key')?.textContent.trim(),id:x.dataset.id||'',tid:x.dataset.skillTip||'',name:skillNames.get(x.dataset.id)||'',group:skillGroups.get(x.dataset.id)||'Other',icon:src.startsWith(location.origin+'/')?src:'',

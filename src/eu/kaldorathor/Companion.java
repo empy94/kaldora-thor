@@ -82,7 +82,7 @@ public final class Companion extends Activity {
             boolean ok = false;
             java.net.HttpURLConnection request = null;
             try {
-                request = (java.net.HttpURLConnection)new java.net.URL("http://127.0.0.1:49226/action").openConnection();
+                request = (java.net.HttpURLConnection)new java.net.URL("http://127.0.0.1:49227/action").openConnection();
                 request.setInstanceFollowRedirects(false);
                 request.setConnectTimeout(1200);
                 request.setReadTimeout(3000);
@@ -122,7 +122,7 @@ public final class Companion extends Activity {
         try {
             if (token == null || token.isEmpty()) throw new java.io.IOException("Connection not configured");
             connection = (java.net.HttpURLConnection)
-                new java.net.URL("http://127.0.0.1:49226/game").openConnection();
+                new java.net.URL("http://127.0.0.1:49227/game").openConnection();
             connection.setInstanceFollowRedirects(false);
             connection.setConnectTimeout(800);
             connection.setReadTimeout(1600);

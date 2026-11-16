@@ -176,6 +176,9 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 .macroBadge{display:block;margin-top:3px;padding:1px 5px;border:1px solid #485f67;border-radius:3px;background:#142329;color:#a9bbc0;font-size:11px;line-height:1.1;white-space:nowrap}
 .macroBadge.on{color:#f2e8ca;border-color:#b59961;background:#4a3f29}
 .macroBadge.unknown{color:#7e9399;border-color:#384c53}
+[data-tab="chat"]{position:relative}
+#chatUnread{position:absolute;top:3px;right:4px;min-width:19px;padding:2px 4px;border-radius:10px;background:#d4b46d;color:#15120d;font-size:11px;font-weight:700;line-height:1.1;text-align:center;pointer-events:none}
+#chatUnread[hidden]{display:none}
 
 /* Native potion slots stay visible while the rest of the panel changes. */
 #potionBar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
@@ -209,7 +212,7 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 <nav aria-label="Panels">
 <button data-tab="sorts"><img src="skills.webp" alt="">Skills</button>
 <button data-tab="map"><img src="map.webp" alt="">Map</button>
-<button data-tab="chat"><img src="chat.svg" alt="">Chat</button>
+<button data-tab="chat" aria-label="Chat"><img src="chat.svg" alt="">Chat<span id="chatUnread" hidden aria-hidden="true"></span></button>
 <button data-tab="macros" aria-label="Macros, status unavailable"><img src="thumb-macro.webp" alt=""><span class="macroTabLabel">Macros<span id="macroBadge" class="macroBadge" aria-hidden="true">—</span></span></button>
 <button data-tab="controls"><img src="settings.webp" alt="">Controls</button>
 <button data-tab="sets"><img src="bag.webp" alt="">Sets</button>
@@ -269,6 +272,26 @@ for(const [index,key] of Object.entries({0:'A4',1:'A5',2:'4',3:'5',5:'6',6:'A3',
 const padCodes={BUTTON_X:'2',BUTTON_Y:'3',BUTTON_R1:'4',BUTTON_L2:'5',BUTTON_A:'6',BUTTON_B:'7',BUTTON_R2:'8'};
 let d={},tab=0,mode=false,cursor=-1,group='inv',row=0,macroSlot=0,pending=false,complete,timer,restored=false,lastSelect=null,mapRequested=false;
 let skillBindings={},macroBindings={},actionBindings={},whisper='', selectedSkill='', pickSkill=false, pickMacro=false;
+let chatSession='',chatTotal=0,chatUnread=0;
+function updateChatBadge(){
+ const badge=$('chatUnread');
+ badge.hidden=!chatUnread;badge.textContent=chatUnread>99?'99+':String(chatUnread);
+ tabs[2].setAttribute('aria-label',chatUnread?'Chat, '+chatUnread+' unread player messages':'Chat');
+}
+function observeChat(activity){
+ if(!activity||typeof activity.session!=='string'||!Number.isSafeInteger(activity.total)||activity.total<0)return;
+ if(activity.session===chatSession&&tab!==2)chatUnread=Math.min(100,chatUnread+Math.max(0,activity.total-chatTotal));
+ chatSession=activity.session;chatTotal=activity.total;
+ updateChatBadge();
+}
+let panelPreferences={};
+try { panelPreferences=JSON.parse(localStorage.getItem('panelPreferences')||'{}')||{}; } catch {}
+if(Number.isInteger(panelPreferences.row)&&panelPreferences.row>=0&&panelPreferences.row<4)row=panelPreferences.row;
+function savePanelPreference(key,value){
+ panelPreferences={...panelPreferences,[key]:value};
+ try { localStorage.setItem('panelPreferences',JSON.stringify(panelPreferences)); }
+ catch { notice('Could not save this preference'); }
+}
 try{
  const old=JSON.parse(localStorage.getItem('bindings')||'{}');
  const saved=JSON.parse(localStorage.getItem('controllerProfiles')||'null');
@@ -292,7 +315,7 @@ function notice(msg){$('feedback').textContent=msg;clearTimeout(timer);timer=set
 const queuedNavigation=[];
 function send(type,value,done){
  if(pending){if(type==='nav')queuedNavigation.push([type,value,done]);else if(type!=='pad')notice('One action at a time');return}
- if(!d.online){notice('USB link unavailable');return}
+ if(!d.online){notice('Game connection unavailable');return}
  pending=true;complete=done;
  location.href='kaldorathor://action?data='+encodeURIComponent(JSON.stringify({type,value}));
 }
@@ -300,12 +323,14 @@ window.actionResult=ok=>{pending=false;const callback=complete;complete=null;if(
 function select(i){
  const previous=tab;
  tab=(i+tabs.length)%tabs.length;cursor=-1;
+ if(panelPreferences.tab!==tabs[tab].dataset.tab)savePanelPreference('tab',tabs[tab].dataset.tab);
  tabs.forEach((b,j)=>{b.setAttribute('aria-selected',j===tab);$(b.dataset.tab).hidden=j!==tab});
  if(previous===1&&tab!==1&&mapRequested){mapRequested=false;if(!pending&&d.online)send('mapRestore','')}
  if(tab===1&&d.online&&!pending){mapRequested=true;send('mapView','')}
- if(tab===2)$('chatLog').scrollTop=$('chatLog').scrollHeight;
+ if(tab===2){chatUnread=0;updateChatBadge();$('chatLog').scrollTop=$('chatLog').scrollHeight}
 }
-tabs.forEach((b,i)=>b.onclick=()=>{if(d.itemDetails){dismissedItem=d.itemDetails.id;$('itemOverlay').hidden=true}select(i)});select(0);
+tabs.forEach((b,i)=>b.onclick=()=>{if(d.itemDetails){dismissedItem=d.itemDetails.id;$('itemOverlay').hidden=true}select(i)});
+select(Math.max(0,tabs.findIndex(button=>button.dataset.tab===panelPreferences.tab)));
 function btn(label,fn,on=false){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;if(on)b.classList.add('active');return b}
 function addIcon(node,src){if(src){const i=document.createElement('img');i.src=src;i.alt='';node.append(i)}}
 function controls(){const selector=!$('skillConfirm').hidden?'#skillConfirm button:not(:disabled)':!$('socketPicker').hidden?'#socketPicker button:not(:disabled):not([hidden])':!$('potionPicker').hidden?'#potionPicker button:not(:disabled)':'#potionBar button:not(:disabled),section:not([hidden]) button:not(:disabled):not([hidden]),section:not([hidden]) select,section:not([hidden]) input,section:not([hidden]) summary';return [...document.querySelectorAll(selector)].filter(el=>el.getClientRects().length)}
@@ -513,8 +538,9 @@ function updateChoices(preferRowBinding=false){
 updateChoices();
 function save(skills, macros, actions=actionBindings){
  send('bind',{...actions,...skills,...macros},()=>{
+  try { localStorage.setItem('controllerProfiles',JSON.stringify({skills,macros,actions})); }
+  catch { notice('Could not save the binding');return }
   skillBindings=skills;macroBindings=macros;actionBindings=actions;
-  localStorage.setItem('controllerProfiles',JSON.stringify({skills,macros,actions}));
   updateChoices(true);drawController();notice('Binding saved');drawSkills(d.slots||[]);drawMacros();
  });
 }
@@ -589,7 +615,7 @@ $('composer').onsubmit=e=>{
  send('chat',m,()=>{const target=/^\/w\s+(\S+)\s+\S/i.exec(m);if(target){whisper=target[1];localStorage.setItem('lastWhisper',whisper);showWhisper()}
  if(x.value.trim()===m)x.value=''});
 };
-let skillLayout='', skillNodes=[], skillCategory='All';
+let skillLayout='', skillNodes=[], skillCategory=typeof panelPreferences.skillCategory==='string'?panelPreferences.skillCategory:'All';
 // Match the game's category order; sort within each group for a stable All view.
 const skillCategoryOrder=['Combat','Buff','Class','Passive','Combo'];
 function orderedSkillEntries(entries){
@@ -612,10 +638,10 @@ function drawSkills(slots){
  for(const x of slots)if(x.id&&!used.has(x.id)){ordered.push({...x,label:''});used.add(x.id)}
  const sorted=orderedSkillEntries(ordered);
  const categories=['All',...new Set(sorted.map(x=>x.group||'Other'))];
- if(!categories.includes(skillCategory))skillCategory='All';
- $('skillCategories').replaceChildren(...categories.map(name=>btn(name,()=>{skillCategory=name;drawSkills(d.slots||[])},name===skillCategory)));
- const shown=skillCategory==='All'?sorted:sorted.filter(x=>(x.group||'Other')===skillCategory);
- const layout=JSON.stringify([skillCategory,shown.map(x=>[x.id,x.icon,x.label,x.group,x.name])]);
+ const selectedCategory=categories.includes(skillCategory)?skillCategory:'All';
+ $('skillCategories').replaceChildren(...categories.map(name=>btn(name,()=>{skillCategory=name;savePanelPreference('skillCategory',name);drawSkills(d.slots||[])},name===selectedCategory)));
+ const shown=selectedCategory==='All'?sorted:sorted.filter(x=>(x.group||'Other')===selectedCategory);
+ const layout=JSON.stringify([selectedCategory,shown.map(x=>[x.id,x.icon,x.label,x.group,x.name])]);
  if(layout!==skillLayout){
   skillLayout=layout;skillNodes=[];$('skills').replaceChildren();
   let groupName=null,grid=null;
@@ -623,7 +649,7 @@ function drawSkills(slots){
    const current=x.group||'Other';
    if(current!==groupName){
     groupName=current;const group=document.createElement('div');group.className='skillsGroup';
-    if(skillCategory==='All'){const heading=document.createElement('h3');heading.className='skillsGroupTitle';heading.textContent=current;group.append(heading)}
+    if(selectedCategory==='All'){const heading=document.createElement('h3');heading.className='skillsGroupTitle';heading.textContent=current;group.append(heading)}
     grid=document.createElement('div');grid.className='skillsGrid';group.append(grid);$('skills').append(group);
    }
    const b=btn('',()=>{
@@ -653,7 +679,7 @@ function drawMacros(){
  const buffRows=d.buffRows||[], attackRow=Number(d.attackRow);
  $('macroRows').replaceChildren(...Array.from({length:4},(_,i)=>btn(
   'Row '+(i+1)+(attackRow===i?' · Attack':'')+(buffRows.includes(i)?' · Buff':'')+(Object.entries(macroBindings).filter(([,b])=>b.value===String(i)).map(([k])=>' · '+keys[k]).join('')),
-  ()=>{row=i;macroSlot=0;pickMacro=false;closeSkillConfirm();updateChoices(true);drawMacros()},i===row)));
+  ()=>{row=i;savePanelPreference('row',i);macroSlot=0;pickMacro=false;closeSkillConfirm();updateChoices(true);drawMacros()},i===row)));
  $('runMacroOnce').disabled=!!d.buffRows?.includes(row)||!d.online;
  const chain=d.macroChains?.find(x=>x.row===row);$('chainTools').hidden=!chain;
  if(chain){const button=$('chainRow');button.hidden=!chain.canToggle;button.disabled=!chain.canToggle;button.textContent=(chain.linked?'Unlink':'Link')+' Row '+(row+1)+' + '+(row+2);button.setAttribute('aria-pressed',String(chain.linked));$('chainHint').textContent=(chain.linked?'Linked':'Not linked')+(chain.reason?' · '+chain.reason:chain.linked?' · Rows run together':' · Up to 20 skills');button.onclick=()=>send('macroChain',{row,expected:chain.expected},()=>notice(chain.linked?'Rows unlinked':'Rows linked'))}
@@ -806,6 +832,7 @@ function changed(id,value,fn){const key=JSON.stringify(value);if(rendered[id]===
 $('effectsSetting').addEventListener('change',e=>send('effects',e.target.value));
 window.renderGame=state=>{
  d=state;
+ observeChat(d.chatActivity);
  const badge=$('macroBadge'), macroActive=d.online&&d.macro===true;
  const activeRow=macroActive&&Number.isInteger(Number(d.activeRow))&&d.activeRow!==''&&d.activeRow!=null&&Number(d.activeRow)>=0?Number(d.activeRow)+1:null;
  badge.textContent=!d.online||d.macro==null?'—':macroActive?'ON'+(activeRow?' · '+activeRow:''):'OFF';
@@ -826,7 +853,7 @@ window.renderGame=state=>{
  if(!d.online){restored=false;lastSelect=null;mapRequested=false}
  if(d.online&&!pending&&!same(d.bindings,activeBindings())&&Date.now()-(restored||0)>2000){restored=Date.now();send('bind',activeBindings())}
  const status=$('macroState');
- status.textContent=d.online?(d.macro===true?(activeRow?'Attack macro · Row '+activeRow+' ON':'Attack macro ON'):d.macro===false?'Attack macro OFF':''):'USB link unavailable';
+ status.textContent=d.online?(d.macro===true?(activeRow?'Attack macro · Row '+activeRow+' ON':'Attack macro ON'):d.macro===false?'Attack macro OFF':''):'Waiting for game in Firefox';
  if(d.lastMacro&&!d.lastMacro.ok&&Date.now()-d.lastMacro.at<2200)status.textContent='Row '+(+d.lastMacro.row+1)+' did not start. Check its slots.';
  if(d.online&&lastSelect!==null&&d.select!==lastSelect)toggleNav();
  lastSelect=d.online?d.select:null;

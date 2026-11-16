@@ -1,55 +1,34 @@
-> **Current Thor build — 0.28:** the companion retains its custom controller profiles and supports Kaldora's linked macro rows. The player confirmed movement, camera, R1/R2 and one X skill binding on the previous 0.26.1 build; the compact Skills layout was checked in a browser fixture. Linked combat, persistence after reconnect and prolonged stability still need testing. This is a temporary compatibility approach, not the game's future official API. Older skill bindings based only on session IDs must be rebound; new assignments use stable skill template IDs. The earlier 0.21 APK and its data-preserving recovery build remain available.
-
 # Kaldora Thor
 
-An independent Android companion for playing Kaldora on the AYN Thor. The game runs in Chrome on the upper display. The lower display shows game data and sends player-triggered actions through the local USB test bridge.
+An Android companion for Kaldora on the AYN Thor. Firefox runs the game on the top screen. The bottom screen shows skills, macros, map, chat, controls, and equipment. Touch actions and controller input travel through a relay inside the APK. The player confirmed that the game and companion continued to work after disconnecting USB.
 
-![Animated preview of Kaldora gameplay and the lower-screen companion](docs/images/thor-demo.gif)
+![Gameplay on the AYN Thor](docs/images/thor-demo.gif)
 
-*Real recordings from both AYN Thor displays, shown in the supplied console frame. Controller highlights and stick movement are visualizations of recorded input. Chat messages are pixelated.*
+*The video shows an earlier build of the two-screen interface.*
 
-[Download the current APK](https://github.com/empy94/kaldora-thor/releases/tag/v0.28) · [Previous 0.21 and recovery APKs](https://github.com/empy94/kaldora-thor/releases/tag/v0.21) · [Controller comparison for the game developer](docs/CONTROLLER-COMPARISON.md)
+## Firefox preview
 
-[Watch the full one-minute demonstration](https://github.com/empy94/kaldora-thor/releases/download/v0.15/Kaldora-Thor-demonstration.mp4) · [View a still screenshot](docs/images/thor-live.png)
+This version requires the Kaldora Thor extension in Firefox for Android. The extension used for the physical test was loaded temporarily with Mozilla's development tool. It survives disconnecting USB during play. For an installation that survives restarting Firefox, the extension needs to be signed and installed in Firefox. See [Mozilla's installation guide](https://extensionworkshop.com/documentation/publish/install-self-distributed/).
 
-## Controller
+Open **Kaldora Thor Firefox Test** to start both displays. Sign in to Kaldora in Firefox if prompted. The first touch on the game after its HUD appears enters fullscreen. Launch from the APK again if the game page is reloaded. Use one Kaldora tab for the companion.
 
-The companion's saved skill and macro bindings take priority over the game's controller assignments. Start opens or closes the game menu. The D-pad, A and B navigate supported windows and dialogs. By default, L3 selects the next target and R3 performs the basic attack; both can instead be assigned to an action, skill or macro. Controls can be configured per button and restored individually or together. A single L1 action runs on release; an assigned L1 combination takes priority. Gameplay bindings do not override A, B and the D-pad while a game dialog is open. Reset all assigns R1 and R2 to macro rows 1 and 2. The Controls guide shows the companion’s current bindings, not the game’s native assignments. The lower panel can record bindings and L1 combinations.
+The APK keeps its own saved controller bindings, last panel, skill category, and selected macro row. The game saves its settings and actual macro contents according to its own rules in Firefox. The earlier Chrome build has its own profile. Updating the Firefox preview over the same Android package preserves its data.
 
-The **Sets** panel shows the four sets stored by Kaldora. Tap a saved set to equip it, or open the game's editor to create and update sets. When an inventory item is highlighted with the D-pad, the lower screen shows its native item details, occupied and empty sockets, and, where available, the equipped-item comparison. Sets can include equipment and the skill bar. The lower-screen joystick bridge forwards movement and right-stick camera input when the companion has focus.
+The Chat tab counts new player messages across game channels while another panel is open. Opening Chat clears the badge. System messages and outgoing whispers do not add to it.
 
-In Skills, All groups skills in the game’s category order and sorts names within each group. The compact layout changes only the companion display, not the game’s hotbar or bindings.
+## Build
 
-In Macros, drag a slot onto another slot to move or swap its contents. Eligible adjacent rows can be linked under the game’s rules, and Attack once requests one pass. Choosing a skill first shows its current level and the description supplied by the game; confirm to assign it. Rows display their native Attack and Buff roles. The game still controls the total number of rows and slots.
+Requires Node.js 22, Android SDK 35, build-tools 34.0.0, and JDK 19 or newer.
 
-The Macros tab shows the live attack-macro status on every panel: ON with its active row, OFF, or — when the game link is unavailable. Attack rows toggle on and off; buff rows use the game’s native one-shot buffs action, including the hero-buff selection. The Map panel displays the map supplied by Kaldora. The launcher uses the game’s supported browser mode, so a separate installed web-app icon is not required. On the login screen, use Play fullscreen if the browser bars are visible.
-
-When an inventory item is highlighted, the lower-screen item details offer Lock / Unlock using Kaldora’s native item lock. The same action can be assigned in Controls to a non-navigation button or supported L1 combination. The companion prevents moving a locked source or swapping onto a locked destination through its own controller and bag-move paths. The game’s lock also protects items from selling and destruction; native touchscreen movement is controlled by the game.
-
-In Character, double-press A on equipped gear to use the game’s unequip action; holding A and moving still drags. In item details, tap an empty socket to choose an inventory stone whose explicit game-provided compatibility matches the equipment. The companion shows the game’s success chance and failure risk where available and asks for confirmation; the game may also ask for confirmation. Stones without explicit compatibility information are not listed. Off-hand daggers and shields share an equipment slot; the companion follows Kaldora’s damage-based distinction when matching their stones. These client-side matches do not replace the game server’s final validation.
-
-The two potion slots remain visible above every panel. Tap a slot to choose a compatible potion currently in the character’s inventory; counts and item art come from the game. The selection uses the game’s own potion-slot handler and leaves the automatic HP/MP thresholds unchanged.
-
-The Controls panel also exposes the game’s Effects setting (Off, Minimal or Full). On touch devices, the bridge restores the saved Effects and buff-effects choices after the game applies its mobile defaults. While a game window is open, use the D-pad to navigate, left/right to adjust a selection or slider, A to activate, and B to close.
-
-The Controls panel places the controller and binding editor first; the complete button guide can be expanded below. Skills and macro slots use larger touch targets.
-
-The APK uses English labels. The PC and USB debugging are required for live game data and actions, including restoration of graphics settings after a game reload.
-
-## Build and run
-
-The current release still requires a PC, USB debugging, Node.js 22 or newer and Android platform-tools. The connection key is generated on the Thor and exchanged automatically over authorized ADB; there is no connection setting to enter in the app. The key stays local and must never be shared.
-
-Install the release APK on the Thor, connect it to the PC, authorize USB debugging, open Kaldora Thor, then run the bridge from the repository on the PC:
-
-    .\tools\Start-UsbBridge.ps1
-
-The script can also accept `-Adb PATH_TO_ADB.EXE -Serial THOR_SERIAL` if automatic detection cannot find the console. Keep the script running while playing. This is a temporary architecture; the developer's proposed API is not yet available.
-
-To build, also install Android SDK platform 35, build-tools 34.0.0 and JDK 19. A shareable build contains no personal connection key:
-
+    node tools/build-firefox-extension.cjs
     .\build.ps1 -Sdk 'ANDROID_SDK_PATH' -Jdk 'JDK_PATH' -PublicRelease
 
-The shareable output is `build/Kaldora-Thor-Release.apk`. The signing key must remain private.
+The extension files are in `build/firefox-extension`. The APK is `build/Kaldora-Thor-Release.apk`. The test package is `eu.kaldorathor.firefoxexp`. The previous [Chrome and USB build](https://github.com/empy94/kaldora-thor/releases/tag/v0.28) remains available.
 
-The companion source is licensed under the [MIT License](LICENSE). Kaldora game art, icons and other third-party assets belong to their respective owners and are not relicensed by this project. The potential official API is discussed in [API integration notes](docs/API-INTEGRATION.md).
+## Game developer
+
+- [Controller comparison](docs/CONTROLLER-COMPARISON.md) describes the player's layout and requested binding workflow.
+- [Native movement test](docs/NATIVE-CONTROLLER-MOVEMENT-TEST.md) includes the confirmed diagnosis and a candidate game-side fix.
+- [Native integration](docs/API-INTEGRATION.md) describes what the game can expose so the APK can work without the Firefox extension.
+
+The app source is under the [MIT License](LICENSE). Kaldora artwork and other third-party assets belong to their respective owners.
