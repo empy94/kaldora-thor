@@ -417,7 +417,17 @@ function view(install) {
   const skillNames=new Map(), skillGroups=new Map();
   if(typeof skillList!=='undefined'&&typeof bar!=='undefined'&&bar&&typeof BAR_COLS!=='undefined') {
     for(const skill of skillList){skillNames.set(String(skill.id),skill.name);skillGroups.set(String(skill.id),skill.passive?'Passive':(SKILL_TABS.find(([id])=>id===skillGroup(skill))?.[1]||'Other'));}
-    catalog=skillList.filter(s=>!s.passive&&skillGroup(s)!==6).map(s=>({tid:String(s.tid),name:s.name,icon:iconFor(s),level:Number(s.lv)||0,bonus:Number(s.bonus)||0,max:Number(s.max)||0,description:Array.isArray(s.tip)?s.tip.map(String):[]}));
+    catalog=skillList.filter(s=>!s.passive&&skillGroup(s)!==6).map(s=>({tid:String(s.tid),name:s.name,icon:iconFor(s),level:Number(s.lv)||0,bonus:Number(s.bonus)||0,max:Number(s.max)||0,description:Array.isArray(s.tip)?s.tip.map(String):[],brief:briefFor(s)}));
+    function briefFor(skill){
+      if(typeof skillBrief!=='function')return null;
+      try{
+      const card=document.createElement('div');card.innerHTML=skillBrief(skill);
+      if(!card.querySelector('.hd'))return null;
+      const nodes=[...card.querySelectorAll('.stats > span')],stats=[];
+      for(let i=0;i+1<nodes.length;i+=2)stats.push({label:nodes[i].textContent.trim(),value:nodes[i+1].textContent.trim()});
+      return {level:card.querySelector('.hd span')?.textContent.trim()||'',kind:card.querySelector('.kind')?.textContent.trim()||'',notes:[...card.querySelectorAll('.ln')].map(x=>x.textContent.trim()).filter(Boolean),stats,cost:card.querySelector('.cost')?.textContent.trim()||''};
+      }catch{return null}
+    }
     function iconFor(skill){const node=skillTile(skill);return domIcon(node)}
     realRows=[0,1,2,3].map(row=>BAR_COLS.map((col)=>{
       const tid=bar.slots[10*row+col]||0;

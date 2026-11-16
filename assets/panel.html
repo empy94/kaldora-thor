@@ -186,6 +186,16 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 #socketOptions[hidden]{display:none}#potionOptions,#socketOptions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;overflow:auto;min-height:0}
 .potionOption{display:flex;align-items:center;gap:9px;min-width:0;min-height:58px;padding:7px;text-align:left;background:linear-gradient(#2a4149,#172830)}.potionOption img{width:42px;height:42px}
 .potionOption .potionDetails{min-width:0;flex:1}.potionOption strong,.potionOption small{display:block;overflow:hidden;text-overflow:ellipsis}.potionOption strong{font-size:12px;white-space:nowrap}.potionOption small{margin-top:3px;color:#acc4ca;font-size:11px}.potionOption .stock{color:#d3c28e;font-size:12px;font-variant-numeric:tabular-nums}.potionOption.active{border-color:#d6b269;box-shadow:inset 0 0 0 1px #d6b26980}
+#skillConfirm .potionSheet{width:min(100%,640px);padding:0;overflow:hidden;border-color:#6c8790;background:linear-gradient(155deg,#213943,#0b171d 64%);box-shadow:0 12px 35px #000c,inset 0 0 0 1px #d0e5e90c}
+#skillConfirm .potionSheetHeader{margin:0;padding:12px 14px;background:linear-gradient(180deg,#49717c80,#1d303980);border-bottom:1px solid #607c83}
+#skillConfirmName{color:#eef9fb;font-size:17px;letter-spacing:.02em}
+#skillConfirmIcon{flex:none;box-shadow:0 2px 8px #0009}
+#skillConfirmDetails{overflow:auto;min-height:0;padding:12px 16px 14px;line-height:1.4;color:#d3e2e4}
+.skill-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.skill-level{font-size:12px;font-weight:700;color:#ead7a1}.skill-kind{font-size:12px;color:#9bc8d3}
+.skill-notes{color:#c9d6da;font-size:13px;margin-bottom:8px}.skill-notes div+div{margin-top:3px}
+.skill-stats{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;padding:10px 0;border-top:1px solid #5d6c7359;font-size:14px;font-variant-numeric:tabular-nums}.skill-stats .label{color:#acbfc3}.skill-stats .value{color:#dcf5fa;text-align:right;font-weight:700}
+.skill-cost{display:flex;gap:6px;flex-wrap:wrap;padding-top:10px;border-top:1px solid #5d6c7359}.skill-cost span{padding:3px 8px;background:#102a33;border:1px solid #3d626c;border-radius:3px;color:#a7dce9;font-size:12px}.skill-cost span:not(:first-child){color:#d9c99b;background:#28291f;border-color:#625c42}
+#applySkillConfirm{margin:0 14px 14px;min-height:46px;border-color:#a58b5e;color:#f6e6b5;background:linear-gradient(#514a36,#292b25);font-weight:700}
 #potionEmpty{margin:8px 4px;color:#bacbd0;font-size:13px}
 @media(max-width:420px){#potionOptions{grid-template-columns:1fr}.potionQuick .potionName{font-size:11px}}
 </style>
@@ -242,7 +252,7 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 <section id="sets" hidden><div id="gearSets" class="gearSets"></div><div class="tools"><button id="editGearSets">Edit sets in game</button></div></section>
 <section id="itemOverlay" hidden aria-label="Item details"><div class="itemHeader"><span id="itemLockState" aria-live="polite"></span><button id="itemLock" type="button" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 7V5a4 4 0 0 1 8 0v2h1v8H3V7zm2 0h4V5a2 2 0 0 0-4 0z" fill="currentColor"/></svg><span></span></button><button id="closeItemDetails">Back to panel</button></div><div id="itemCards"></div></section>
 <section id="menus" hidden><div id="npc" hidden></div><div class="tools"><button id="inventory">Bag</button><button id="pet">Pet</button><button id="bank">Storage</button></div><div id="bagTabs" class="tools"></div><div id="bagGrid"></div><p id="itemInfo"></p><div class="tools"><button id="moveItem" hidden>Move here</button><button id="clearItem" hidden>Cancel move</button></div></section>
-<div id="skillConfirm" hidden role="dialog" aria-modal="true" aria-labelledby="skillConfirmName"><div class="potionSheet"><div class="potionSheetHeader"><img id="skillConfirmIcon" alt="" hidden style="width:44px;height:44px;object-fit:contain;border:1px solid #788785;border-radius:3px"><strong id="skillConfirmName"></strong><button id="cancelSkillConfirm" type="button">Back</button></div><div id="skillConfirmDetails" style="overflow:auto;min-height:0;line-height:1.45;color:#c7dce0"></div><button id="applySkillConfirm" type="button" style="min-height:46px">Add to row</button></div></div>
+<div id="skillConfirm" hidden role="dialog" aria-modal="true" aria-labelledby="skillConfirmName"><div class="potionSheet"><div class="potionSheetHeader"><img id="skillConfirmIcon" alt="" hidden style="width:44px;height:44px;object-fit:contain;border:1px solid #788785;border-radius:3px"><strong id="skillConfirmName"></strong><button id="cancelSkillConfirm" type="button">Back</button></div><div id="skillConfirmDetails"></div><button id="applySkillConfirm" type="button">Add to row</button></div></div>
 <div id="socketPicker" hidden role="dialog" aria-modal="true" aria-labelledby="socketTitle"><div class="potionSheet"><div class="potionSheetHeader"><strong id="socketTitle">Choose a stone</strong><button id="closeSocketPicker" type="button">Close</button></div><div id="socketOptions"></div><p id="socketMessage" style="color:#e6d5ad;font-size:13px"></p><button id="confirmSocket" type="button" hidden style="min-height:46px">Confirm insertion</button></div></div>
 <div id="potionPicker" hidden role="dialog" aria-modal="true" aria-labelledby="potionPickerTitle"><div class="potionSheet"><div class="potionSheetHeader"><strong id="potionPickerTitle"></strong><button id="closePotionPicker" type="button">Close</button></div><div id="potionOptions"></div><p id="potionEmpty" hidden>No compatible potions in your inventory.</p></div></div>
 <div id="captureDialog" hidden role="dialog" aria-modal="true" aria-label="Record controller button"><div class="captureCard"><strong>Press a controller button</strong><p id="captureMessage">Release the button, then confirm.</p><div class="tools"><button id="captureConfirm" disabled>Confirm</button><button id="captureForce" hidden>Replace binding</button><button id="captureCancel">Cancel</button></div></div></div><output id="feedback" role="status"></output>
@@ -535,9 +545,16 @@ let skillChoice=null;
 function closeSkillConfirm(){skillChoice=null;$('skillConfirm').hidden=true}
 function showSkillConfirm(skill){
  skillChoice={tid:skill.tid,row,slot:macroSlot,expected:Number(d.realRows?.[row]?.[macroSlot]?.tid)||0};$('skillConfirmName').textContent=skill.name;const art=$('skillConfirmIcon');art.hidden=!skill.icon;if(skill.icon)art.src=skill.icon;
- const level=document.createElement('strong');level.textContent=skill.level>0?'Level '+skill.level+(skill.bonus?' + '+skill.bonus:'')+(skill.max?' / '+skill.max:''):'Level unavailable';
- const details=(skill.description||[]).map(line=>{const p=document.createElement('div');p.textContent=line;return p});
- $('skillConfirmDetails').replaceChildren(level,...details);$('skillConfirm').hidden=false;cursor=-1;
+ const brief=skill.brief,content=[];
+ const meta=document.createElement('div');meta.className='skill-meta';
+ const level=document.createElement('span');level.className='skill-level';level.textContent=brief?.level||(skill.level>0?'Level '+skill.level+(skill.bonus?' + '+skill.bonus:'')+(skill.max?' / '+skill.max:''):'Level unavailable');meta.append(level);
+ if(brief?.kind){const kind=document.createElement('span');kind.className='skill-kind';kind.textContent=brief.kind;meta.append(kind)}content.push(meta);
+ if(brief){
+  if(brief.notes?.length){const notes=document.createElement('div');notes.className='skill-notes';for(const text of brief.notes){const line=document.createElement('div');line.textContent=text;notes.append(line)}content.push(notes)}
+  if(brief.stats?.length){const stats=document.createElement('div');stats.className='skill-stats';for(const item of brief.stats){const label=document.createElement('span'),value=document.createElement('span');label.className='label';value.className='value';label.textContent=item.label;value.textContent=item.value;stats.append(label,value)}content.push(stats)}
+  if(brief.cost){const cost=document.createElement('div');cost.className='skill-cost';for(const part of brief.cost.split(' · ')){const chip=document.createElement('span');chip.textContent=part;cost.append(chip)}content.push(cost)}
+ }else{const notes=document.createElement('div');notes.className='skill-notes';for(const text of skill.description||[]){const line=document.createElement('div');line.textContent=text;notes.append(line)}content.push(notes)}
+ $('skillConfirmDetails').replaceChildren(...content);$('skillConfirm').hidden=false;cursor=-1;
 }
 $('cancelSkillConfirm').onclick=closeSkillConfirm;
 $('skillConfirm').onclick=e=>{if(e.target===$('skillConfirm'))closeSkillConfirm()};
