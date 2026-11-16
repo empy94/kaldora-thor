@@ -1,0 +1,12 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs');
+const html=fs.readFileSync(require('node:path').join(__dirname,'../assets/panel.html'),'utf8');
+const start=html.indexOf("const skillCategoryOrder=['Combat'");
+const end=html.indexOf('// END_SKILL_ORDER',start);
+assert(start>=0&&end>start,'skill ordering helper missing');
+const sort=new Function(html.slice(start,end)+'\nreturn orderedSkillEntries;')();
+const input=[{id:'9',name:'Zebra',group:'Buff'},{id:'7',name:'Zeta',group:'Combat'},{id:'3',name:'Alpha',group:'Combo'},{id:'2',name:'Alpha',group:'Combat'},{id:'5',name:'Passive Skill',group:'Passive'},{id:'4',name:'Class Skill',group:'Class'},{id:'6',name:'Beta',group:'Buff'},{id:'10',name:'Other Skill',group:'Other'}];
+assert.deepEqual(sort(input).map(x=>x.name),['Alpha','Zeta','Beta','Zebra','Class Skill','Passive Skill','Alpha','Other Skill']);
+assert.equal(input[0].name,'Zebra','must not reorder source hotbar');
+assert.deepEqual(sort([{id:'10',name:'Same',group:'Combat'},{id:'2',name:'Same',group:'Combat'}]).map(x=>x.id),['2','10']);
+console.log('Skill groups follow game order; names and ties sort without mutating source.');

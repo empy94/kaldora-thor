@@ -1,4 +1,4 @@
-> **Current Thor build — 0.26.1:** the companion retains its custom controller profiles and supports Kaldora's linked macro rows. The player confirmed movement, camera, R1/R2 and one X skill binding on an AYN Thor; linked combat, persistence after reconnect and prolonged stability still need testing. This is a temporary compatibility approach, not the game's future official API. Older skill bindings based only on session IDs must be rebound; new assignments use stable skill template IDs. The earlier 0.21 APK and its data-preserving recovery build remain available.
+> **Current Thor build — 0.28:** the companion retains its custom controller profiles and supports Kaldora's linked macro rows. The player confirmed movement, camera, R1/R2 and one X skill binding on the previous 0.26.1 build; the compact Skills layout was checked in a browser fixture. Linked combat, persistence after reconnect and prolonged stability still need testing. This is a temporary compatibility approach, not the game's future official API. Older skill bindings based only on session IDs must be rebound; new assignments use stable skill template IDs. The earlier 0.21 APK and its data-preserving recovery build remain available.
 
 # Kaldora Thor
 
@@ -8,7 +8,7 @@ An independent Android companion for playing Kaldora on the AYN Thor. The game r
 
 *Real recordings from both AYN Thor displays, shown in the supplied console frame. Controller highlights and stick movement are visualizations of recorded input. Chat messages are pixelated.*
 
-[Download the current APK](https://github.com/empy94/kaldora-thor/releases/tag/v0.26.1-custom-preview) · [Previous 0.21 and recovery APKs](https://github.com/empy94/kaldora-thor/releases/tag/v0.21) · [Controller comparison for the game developer](docs/CONTROLLER-COMPARISON.md)
+[Download the current APK](https://github.com/empy94/kaldora-thor/releases/tag/v0.28) · [Previous 0.21 and recovery APKs](https://github.com/empy94/kaldora-thor/releases/tag/v0.21) · [Controller comparison for the game developer](docs/CONTROLLER-COMPARISON.md)
 
 [Watch the full one-minute demonstration](https://github.com/empy94/kaldora-thor/releases/download/v0.15/Kaldora-Thor-demonstration.mp4) · [View a still screenshot](docs/images/thor-live.png)
 
@@ -17,6 +17,8 @@ An independent Android companion for playing Kaldora on the AYN Thor. The game r
 The companion's saved skill and macro bindings take priority over the game's controller assignments. Start opens or closes the game menu. The D-pad, A and B navigate supported windows and dialogs. By default, L3 selects the next target and R3 performs the basic attack; both can instead be assigned to an action, skill or macro. Controls can be configured per button and restored individually or together. A single L1 action runs on release; an assigned L1 combination takes priority. Gameplay bindings do not override A, B and the D-pad while a game dialog is open. Reset all assigns R1 and R2 to macro rows 1 and 2. The Controls guide shows the companion’s current bindings, not the game’s native assignments. The lower panel can record bindings and L1 combinations.
 
 The **Sets** panel shows the four sets stored by Kaldora. Tap a saved set to equip it, or open the game's editor to create and update sets. When an inventory item is highlighted with the D-pad, the lower screen shows its native item details, occupied and empty sockets, and, where available, the equipped-item comparison. Sets can include equipment and the skill bar. The lower-screen joystick bridge forwards movement and right-stick camera input when the companion has focus.
+
+In Skills, All groups skills in the game’s category order and sorts names within each group. The compact layout changes only the companion display, not the game’s hotbar or bindings.
 
 In Macros, drag a slot onto another slot to move or swap its contents. Eligible adjacent rows can be linked under the game’s rules, and Attack once requests one pass. Choosing a skill first shows its current level and the description supplied by the game; confirm to assign it. Rows display their native Attack and Buff roles. The game still controls the total number of rows and slots.
 

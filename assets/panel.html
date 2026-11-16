@@ -151,7 +151,11 @@ button:active{filter:brightness(1.2)}
 nav button{min-height:48px;font-size:13px}nav button[aria-selected=true]{border-color:#9acbd6;box-shadow:inset 0 -3px #a4d8e6,0 1px 8px #6fb4c02e}
 section{padding:10px 12px;border-color:#405762}
 #skills .row{grid-template-columns:repeat(4,minmax(0,1fr));justify-items:center;gap:10px}
-#skills .slot{width:100%;min-height:68px}#skills .slot .art{width:50px;height:50px}
+#skills .skillsGroup+.skillsGroup{margin-top:10px}
+#skills .skillsGroupTitle{margin:0 0 5px;color:#a8c5cd;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+#skills .skillsGrid{display:grid;grid-template-columns:repeat(auto-fill,52px);justify-content:start;gap:4px}
+#skills .slot{width:52px;height:52px;min-height:52px;padding:0;position:relative}#skills .slot .art{width:50px;height:50px}
+#skills .slot small{position:absolute;right:1px;bottom:1px;min-height:0;padding:0 3px;border-radius:3px;background:#0b151de8;color:#e4f7ff;font-size:10px;line-height:14px;pointer-events:none}#skills .slot small:empty{display:none}
 #macroSlots{grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}#macroSlots .slot{min-height:64px;touch-action:none}#macroSlots .slot.dragging{opacity:.55}#macroSlots .slot.drop-target{outline:2px solid #cdb276;outline-offset:2px}
 #controls .controller{grid-template-columns:minmax(0,1.25fr) minmax(175px,1fr);gap:14px;margin:12px 0}
 #controls .controller svg{max-height:360px}.controller [data-pad]{cursor:pointer}.controller [data-pad]:active :is(circle,rect,path){fill:#759da9}
@@ -586,6 +590,16 @@ $('composer').onsubmit=e=>{
  if(x.value.trim()===m)x.value=''});
 };
 let skillLayout='', skillNodes=[], skillCategory='All';
+// Match the game's category order; sort within each group for a stable All view.
+const skillCategoryOrder=['Combat','Buff','Class','Passive','Combo'];
+function orderedSkillEntries(entries){
+ const rank=name=>{const i=skillCategoryOrder.indexOf(name);return i<0?skillCategoryOrder.length:i};
+ return [...entries].sort((a,b)=>{
+  const ag=a.group||'Other',bg=b.group||'Other',groupOrder=rank(ag)-rank(bg);
+  return groupOrder||ag.localeCompare(bg,'en',{sensitivity:'base'})||String(a.name||'').localeCompare(String(b.name||''),'en',{sensitivity:'base',numeric:true})||String(a.id||'').localeCompare(String(b.id||''),'en',{numeric:true});
+ });
+}
+// END_SKILL_ORDER
 function drawSkills(slots){
  const ordered=[], used=new Set();
  const displayedKeys=Object.entries(keys);
@@ -593,31 +607,36 @@ function drawSkills(slots){
   if(macroBindings[key]||actionBindings[key])continue;
   const binding=skillBindings[key];
   const match=binding?slots.find(x=>matchesSkill(x,binding.value)):slots.find(x=>x.key===key&&!Object.values(skillBindings).some(b=>matchesSkill(x,b.value)));
-  if(match?.id){ordered.push({...match,label});used.add(match.id)}
+  if(match?.id&&!used.has(match.id)){ordered.push({...match,label});used.add(match.id)}
  }
  for(const x of slots)if(x.id&&!used.has(x.id)){ordered.push({...x,label:''});used.add(x.id)}
- const categories=['All',...new Set(ordered.map(x=>x.group||'Other'))];
+ const sorted=orderedSkillEntries(ordered);
+ const categories=['All',...new Set(sorted.map(x=>x.group||'Other'))];
  if(!categories.includes(skillCategory))skillCategory='All';
  $('skillCategories').replaceChildren(...categories.map(name=>btn(name,()=>{skillCategory=name;drawSkills(d.slots||[])},name===skillCategory)));
- const shown=skillCategory==='All'?ordered:ordered.filter(x=>(x.group||'Other')===skillCategory);
- const layout=JSON.stringify(shown.map(x=>[x.id,x.icon,x.label]));
+ const shown=skillCategory==='All'?sorted:sorted.filter(x=>(x.group||'Other')===skillCategory);
+ const layout=JSON.stringify([skillCategory,shown.map(x=>[x.id,x.icon,x.label,x.group,x.name])]);
  if(layout!==skillLayout){
   skillLayout=layout;skillNodes=[];$('skills').replaceChildren();
-  for(let i=0;i<shown.length;i+=4){
-   const line=document.createElement('div');line.className='row';
-   for(const x of shown.slice(i,i+4)){
-    const b=btn('',()=>{
-     if(pickSkill){selectedSkill=skillIdentity(x);const assigned=Object.keys(skillBindings).find(k=>matchesSkill(x,skillBindings[k].value));if(assigned)$('skillBind').value=assigned;drawSkills(d.slots||[]);beginCapture('skill')}
-     else send('spell',x.id,()=>{b.classList.add('castFlash');setTimeout(()=>b.classList.remove('castFlash'),230)});
-    });
-    b.className='slot';
-    b.setAttribute('aria-label',d.catalog?.find(c=>c.icon===x.icon)?.name||'Equipped skill');
-    const art=document.createElement('div');art.className='art';addIcon(art,x.icon);
-    const cd=document.createElement('div');cd.className='cooldown';art.append(cd);
-    const label=document.createElement('small');label.textContent=x.label;
-    b.append(art,label);line.append(b);skillNodes.push({b,cd});
+  let groupName=null,grid=null;
+  for(const x of shown){
+   const current=x.group||'Other';
+   if(current!==groupName){
+    groupName=current;const group=document.createElement('div');group.className='skillsGroup';
+    if(skillCategory==='All'){const heading=document.createElement('h3');heading.className='skillsGroupTitle';heading.textContent=current;group.append(heading)}
+    grid=document.createElement('div');grid.className='skillsGrid';group.append(grid);$('skills').append(group);
    }
-   $('skills').append(line);
+   const b=btn('',()=>{
+    if(pickSkill){selectedSkill=skillIdentity(x);const assigned=Object.keys(skillBindings).find(k=>matchesSkill(x,skillBindings[k].value));if(assigned)$('skillBind').value=assigned;drawSkills(d.slots||[]);beginCapture('skill')}
+    else send('spell',x.id,()=>{b.classList.add('castFlash');setTimeout(()=>b.classList.remove('castFlash'),230)});
+   });
+   b.className='slot';
+   const name=x.name||d.catalog?.find(c=>c.icon===x.icon)?.name||'Equipped skill';
+   b.setAttribute('aria-label',name+(x.label?' · '+x.label:''));b.title=name;
+   const art=document.createElement('div');art.className='art';addIcon(art,x.icon);
+   const cd=document.createElement('div');cd.className='cooldown';art.append(cd);
+   const label=document.createElement('small');label.textContent=x.label;
+   b.append(art,label);grid.append(b);skillNodes.push({b,cd});
   }
  }
  shown.forEach((x,i)=>{
