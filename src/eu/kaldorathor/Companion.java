@@ -90,11 +90,13 @@ public final class Companion extends Activity {
         super.onStop();
     }
 
-    private void readGame(String token) {
+    private void readGame() {
+        String token = bridgeToken;
         if (!visible) return;
         String snapshot = "{\"online\":false}";
         java.net.HttpURLConnection connection = null;
         try {
+            if (token == null || token.isEmpty()) throw new java.io.IOException("Connection not configured");
             connection = (java.net.HttpURLConnection)
                 new java.net.URL("http://127.0.0.1:49226/game").openConnection();
             connection.setInstanceFollowRedirects(false);
@@ -134,13 +136,8 @@ public final class Companion extends Activity {
         });
         setContentView(panel);
         panel.loadUrl("file:///android_asset/panel.html");
-        try (java.io.BufferedReader reader = new java.io.BufferedReader(
-                new java.io.InputStreamReader(getAssets().open("usb-key.txt"), "UTF-8"))) {
-            String token = reader.readLine();
-            bridgeToken = token;
-            updates.scheduleWithFixedDelay(() -> readGame(token), 600, 700,
-                java.util.concurrent.TimeUnit.MILLISECONDS);
-        } catch (java.io.IOException ignored) {}
+        bridgeToken = ConnectionKey.get(this);
+        updates.scheduleWithFixedDelay(this::readGame, 600, 700, java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 
     @Override public boolean dispatchKeyEvent(KeyEvent event) {

@@ -26,13 +26,18 @@ The APK uses English labels. The PC and USB debugging are required for live game
 
 ## Build and run
 
-Requirements: Windows, Node.js 22 or newer, Android SDK platform 35, build-tools 34.0.0, JDK 19 and ADB. Create a different local key on each private installation. Keep it out of Git and distribute locally built APKs only to the holder of that key.
+The current release still requires a PC, USB debugging, Node.js 22 or newer and Android platform-tools. The connection key is generated on the Thor and exchanged automatically over authorized ADB; there is no connection setting to enter in the app. The key stays local and must never be shared.
 
-    node -e "require('fs').writeFileSync('assets/usb-key.txt',require('crypto').randomBytes(32).toString('hex'),{flag:'wx'})"
-    .\build.ps1 -Sdk 'ANDROID_SDK_PATH' -Jdk 'JDK_PATH'
+Install the release APK on the Thor, connect it to the PC, authorize USB debugging, open Kaldora Thor, then run the bridge from the repository on the PC:
 
-Install the signed APK from build/Kaldora-Thor.apk, open it on the Thor and log in to Kaldora in Chrome. Run this command from the PC for the live lower display.
+    .\tools\Start-UsbBridge.ps1
 
-    .\tools\Start-UsbBridge.ps1 -Adb 'PATH_TO_ADB.EXE' -Serial 'THOR_SERIAL'
+The script can also accept `-Adb PATH_TO_ADB.EXE -Serial THOR_SERIAL` if automatic detection cannot find the console. Keep the script running while playing. This is a temporary architecture; the developer's proposed API is not yet available.
 
-Kaldora game art and icons belong to their respective owners. This repository contains the companion source and presentation images.
+To build, also install Android SDK platform 35, build-tools 34.0.0 and JDK 19. A shareable build contains no personal connection key:
+
+    .\build.ps1 -Sdk 'ANDROID_SDK_PATH' -Jdk 'JDK_PATH' -PublicRelease
+
+The shareable output is `build/Kaldora-Thor-Release.apk`. The signing key must remain private.
+
+The companion source is licensed under the [MIT License](LICENSE). Kaldora game art, icons and other third-party assets belong to their respective owners and are not relicensed by this project. The potential official API is discussed in [API integration notes](docs/API-INTEGRATION.md).

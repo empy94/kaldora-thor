@@ -1,8 +1,17 @@
-param([Parameter(Mandatory=$true)][string]$Sdk,[Parameter(Mandatory=$true)][string]$Jdk)
+param([Parameter(Mandatory=$true)][string]$Sdk,[Parameter(Mandatory=$true)][string]$Jdk,[switch]$PublicRelease)
 $ErrorActionPreference='Stop'
 $root=$PSScriptRoot; $bt=Join-Path $Sdk 'build-tools\34.0.0'; $jar=Join-Path $Sdk 'platforms\android-35\android.jar'; $out=Join-Path $root 'build'
 New-Item -ItemType Directory -Force -Path "$out\gen","$out\classes","$out\dex" | Out-Null
-& "$bt\aapt.exe" package -f -m -M "$root\AndroidManifest.xml" -S "$root\res" -A "$root\assets" -I $jar -J "$out\gen" -F "$out\unsigned.apk"
+$assetDir = Join-Path $root 'assets'
+$apkName = 'Kaldora-Thor.apk'
+if ($PublicRelease) {
+  $assetDir = Join-Path $out ('release-assets-' + [Guid]::NewGuid().ToString('N'))
+  New-Item -ItemType Directory -Force -Path $assetDir | Out-Null
+  Get-ChildItem -LiteralPath (Join-Path $root 'assets') -Force | Where-Object { $_.Name -ne 'usb-key.txt' } | Copy-Item -Destination $assetDir -Recurse -Force
+  [IO.File]::WriteAllText((Join-Path $assetDir 'usb-key.txt'), '')
+  $apkName = 'Kaldora-Thor-Release.apk'
+}
+& "$bt\aapt.exe" package -f -m -M "$root\AndroidManifest.xml" -S "$root\res" -A $assetDir -I $jar -J "$out\gen" -F "$out\unsigned.apk"
 if($LASTEXITCODE){throw 'Packaging failed'}
 $sources=@(Get-ChildItem "$root\src","$out\gen" -Recurse -Filter '*.java' | ForEach-Object FullName)
 & "$Jdk\bin\javac.exe" --release 8 -encoding UTF-8 -classpath $jar -d "$out\classes" $sources
@@ -17,7 +26,7 @@ if($LASTEXITCODE){throw 'Alignment failed'}
 $keyDir=Join-Path $env:USERPROFILE '.android\kaldora-thor'; New-Item -ItemType Directory -Force $keyDir | Out-Null
 $key=Join-Path $keyDir 'local.jks'; $pass=Join-Path $keyDir 'password.txt'
 if(!(Test-Path $key)){if(Test-Path $pass){throw 'Password exists without key'};$b=New-Object byte[] 32;[Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b);[IO.File]::WriteAllText($pass,[Convert]::ToBase64String($b)); & "$Jdk\bin\keytool.exe" -genkeypair -keystore $key -storepass:file $pass -keypass:file $pass -alias jiva -dname 'CN=Kaldora Thor Local' -keyalg RSA -keysize 3072 -validity 10000;if($LASTEXITCODE){throw 'Key generation failed'}}
-& "$bt\apksigner.bat" sign --ks $key --ks-key-alias jiva --ks-pass "file:$pass" --out "$out\Kaldora-Thor.apk" "$out\aligned.apk"
+& "$bt\apksigner.bat" sign --ks $key --ks-key-alias jiva --ks-pass "file:$pass" --out "$out\$apkName" "$out\aligned.apk"
 if($LASTEXITCODE){throw 'Signing failed'}
-& "$bt\apksigner.bat" verify "$out\Kaldora-Thor.apk"
+& "$bt\apksigner.bat" verify "$out\$apkName"
 if($LASTEXITCODE){throw 'Verification failed'}
