@@ -51,8 +51,15 @@
       } catch { await delay(200); }
     }
   }
-  void sendSnapshots();
-  void receiveCommands();
+  async function start() {
+    try {
+      const result = await browser.runtime.sendMessage({type:'claim',token});
+      if (result?.reused) return;
+    } catch { }
+    void sendSnapshots();
+    void receiveCommands();
+  }
+  void start();
 
   let entering = false;
   async function enterFullscreen(event) {
@@ -61,8 +68,6 @@
     entering = true;
     try {
       await document.documentElement.requestFullscreen();
-      for (const type of ['pointerup', 'keydown', 'click'])
-        window.removeEventListener(type, enterFullscreen, true);
     } catch {
       // Firefox can deny an event without browser user activation.
     } finally { entering = false; }
