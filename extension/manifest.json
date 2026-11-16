@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kaldora Thor Local Bridge",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "browser_specific_settings": {
     "gecko": {"id": "thor-bridge@kaldora-thor.local", "strict_min_version": "128.0"},
     "gecko_android": {}

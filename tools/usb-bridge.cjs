@@ -63,7 +63,7 @@ function inputs() {
   };
   const menuSelectors=['#npc-menu','#menu-win','#inventory','#shop','#petbag','#bank','#skills','#macro-win','#missions','#character'];
   const visible=x=>x&&x.getClientRects().length&&getComputedStyle(x).visibility!=='hidden';
-  let highlighted, dragSource, dragItem, dragMoved=false, anchor, dragStartedAt=0, lastItemTap=null;
+  let highlighted, highlightOwner, dragSource, dragItem, dragMoved=false, anchor, dragStartedAt=0, lastItemTap=null;
   const panels=()=>[...document.querySelectorAll('.panel.show,[role="dialog"].show')]
     .filter(x=>visible(x)&&!x.closest('[hidden]'));
   const panel=()=>{
@@ -71,7 +71,8 @@ function inputs() {
       .filter(x=>visible(x)&&!x.closest('[hidden]'));
     if(dialogs.length)return dialogs[dialogs.length-1];
     const available=panels();
-    const selected=available.find(x=>highlighted&&x.contains(highlighted));
+    const selected=available.find(x=>highlighted&&x.contains(highlighted)) ||
+      (highlighted&&!highlighted.isConnected&&available.includes(highlightOwner)?highlightOwner:null);
     return selected || available
       .sort((a,b)=>(parseInt(getComputedStyle(b).zIndex)||0)-(parseInt(getComputedStyle(a).zIndex)||0))[0]
       ||menuSelectors.map(s=>document.querySelector(s)).find(x=>x?.classList.contains('show')&&visible(x));
@@ -87,6 +88,7 @@ function inputs() {
     if(highlighted===next)return;
     highlighted?.classList.remove('thor-nav');
     highlighted=next;
+    highlightOwner=next?.closest('.panel.show,[role="dialog"].show,dialog[open],[role="dialog"][aria-modal="true"]')||null;
     if(next){
       const parent=next.parentElement;
       anchor=parent?.id?{parent:parent.id,index:[...parent.children].indexOf(next),id:next.id,item:next.dataset.item||''}:null;

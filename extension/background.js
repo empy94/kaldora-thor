@@ -25,7 +25,8 @@ browser.runtime.onMessage.addListener((request, sender) => {
     signal: AbortSignal.timeout(2200)
   }).then(async response => {
     if (!response.ok) return null;
-    if (request.type === 'snapshot' && request.data?.snapshot?.online === true) {
+    if (request.type === 'snapshot' && request.data?.snapshot &&
+        (activeTab === null || activeTab === sender.tab.id || Date.now() - lastSnapshot >= 4000)) {
       activeTab = sender.tab.id;
       activeToken = request.token;
       lastSnapshot = Date.now();

@@ -63,8 +63,7 @@
 
   let entering = false;
   async function enterFullscreen(event) {
-    if (!event.isTrusted || entering || document.fullscreenElement ||
-        !document.querySelector('#hud.show')) return;
+    if (!event.isTrusted || entering || document.fullscreenElement) return;
     entering = true;
     try {
       await document.documentElement.requestFullscreen();

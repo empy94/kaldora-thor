@@ -19,6 +19,7 @@ public final class Launcher extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        if (state != null) { finish(); return; }
         if (!hasFirefox()) {
             showFirefoxSetup();
             return;
