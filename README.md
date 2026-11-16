@@ -10,7 +10,7 @@ An Android companion for Kaldora on the AYN Thor. Firefox runs the game on the t
 
 This version requires the Kaldora Thor extension in Firefox for Android. The extension used for the physical test was loaded temporarily with Mozilla's development tool. It survives disconnecting USB during play. For an installation that survives restarting Firefox, the extension needs to be signed and installed in Firefox. See [Mozilla's installation guide](https://extensionworkshop.com/documentation/publish/install-self-distributed/).
 
-Open **Kaldora Thor Firefox Test** to start both displays. Sign in to Kaldora in Firefox if prompted. The first touch on the game after its HUD appears enters fullscreen. Launch from the APK again if the game page is reloaded. Use one Kaldora tab for the companion.
+Open **Kaldora Thor Firefox Test** to start both displays. If Firefox is missing, the launcher offers a direct link to install it. Firefox and the extension require separate confirmation. Sign in to Kaldora in Firefox if prompted. The first touch on the game after its HUD appears enters fullscreen. Launch from the APK again if the game page is reloaded. Use one Kaldora tab for the companion.
 
 The APK keeps its own saved controller bindings, last panel, skill category, and selected macro row. The game saves its settings and actual macro contents according to its own rules in Firefox. The earlier Chrome build has its own profile. Updating the Firefox preview over the same Android package preserves its data.
 
