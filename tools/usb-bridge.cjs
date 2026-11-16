@@ -417,7 +417,7 @@ function view(install) {
   const skillNames=new Map(), skillGroups=new Map();
   if(typeof skillList!=='undefined'&&typeof bar!=='undefined'&&bar&&typeof BAR_COLS!=='undefined') {
     for(const skill of skillList){skillNames.set(String(skill.id),skill.name);skillGroups.set(String(skill.id),skill.passive?'Passive':(SKILL_TABS.find(([id])=>id===skillGroup(skill))?.[1]||'Other'));}
-    catalog=skillList.filter(s=>!s.passive&&skillGroup(s)!==6).map(s=>({tid:String(s.tid),name:s.name,icon:iconFor(s)}));
+    catalog=skillList.filter(s=>!s.passive&&skillGroup(s)!==6).map(s=>({tid:String(s.tid),name:s.name,icon:iconFor(s),level:Number(s.lv)||0,bonus:Number(s.bonus)||0,max:Number(s.max)||0,description:Array.isArray(s.tip)?s.tip.map(String):[]}));
     function iconFor(skill){const node=skillTile(skill);return domIcon(node)}
     realRows=[0,1,2,3].map(row=>BAR_COLS.map((col)=>{
       const tid=bar.slots[10*row+col]||0;
@@ -481,7 +481,7 @@ function view(install) {
   return {online:true,potions,effects:typeof settings!=='undefined'?String(settings.effects):null,sets,itemDetails,pressed:window.__thor.pressed||[],lastPress:window.__thor.lastPress,
     nativePad:typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function',
     nativePadMap:typeof pad!=='undefined'&&Array.isArray(pad?.map)?pad.map.map(value=>({value,label:(typeof PAD_ACTIONS!=='undefined'?PAD_ACTIONS.flatMap(group=>group[1]).find(option=>option[0]===value)?.[1]:null)||value||'Nothing'})):[],
-    buffRows:typeof bar!=='undefined'&&bar?[bar.bRow??1,bar.bRow2??-1]:[],
+    buffRows:typeof bar!=='undefined'&&bar?[bar.bRow??1,bar.bRow2??-1]:[],attackRow:typeof bar!=='undefined'&&bar?bar.mRow??0:null,
     fullscreen:!!document.fullscreenElement,nativeMenu:window.__thor.menu(),bindings:window.__thor.bind,lastMacro:window.__thor.lastMacro,
     activeRow:typeof macroRow==='number'?String(macroRow):'',inventory,npc,catalog,realRows,select:window.__thor.select||0,focused:document.hasFocus(),level:txt('#level'),hp:txt('#hp-text'),mp:txt('#mp-text'),xp:txt('#exp-text'),
     bars:['hp','mp','exp'].map(k=>parseFloat(q('#'+k+'-fill')?.style.width)||0),
@@ -617,11 +617,30 @@ function action(a) {
     for(const name of ['display','opacity','pointer-events'])root.style.removeProperty(name);
     return true;
   }
+  if(a.type==='macroSwap'){
+    const {row,from,to,expectedFrom,expectedTo}=a.value;
+    if(typeof bar==='undefined'||!bar||typeof BAR_COLS==='undefined'||typeof dropOnSlot!=='function')return false;
+    const source=10*row+BAR_COLS[from],target=10*row+BAR_COLS[to];
+    if(source===target||Number(bar.slots[source]||0)!==expectedFrom||Number(bar.slots[target]||0)!==expectedTo||!expectedFrom)return false;
+    if((expectedFrom<0&&!itemOk(target))||(expectedTo<0&&!itemOk(source)))return false;
+    dropOnSlot({preventDefault(){},dataTransfer:{getData:()=>`slot:${source}`}},target);
+    return Number(bar.slots[target]||0)===expectedFrom&&Number(bar.slots[source]||0)===expectedTo;
+  }
+  if(a.type==='extraBuffRow'){
+    if(typeof bar==='undefined'||!bar)return false;
+    const row=a.value,el=q('#set-brow2');
+    if(!el||row===Number(bar.mRow??0)||row===Number(bar.bRow??1)||![...el.options].some(o=>Number(o.value)===row))return false;
+    el.value=String(row);el.dispatchEvent(new Event('change',{bubbles:true}));return bar.bRow2===row;
+  }
+  if(a.type==='allBuffs'){
+    if(typeof bar==='undefined'||!bar||typeof runBuffs!=='function')return false;
+    runBuffs();return true;
+  }
   if(a.type==='macroSlot'){
-    const {row,slot,tid}=a.value;
+    const {row,slot,tid,expected}=a.value;
     if(typeof bar==='undefined'||!bar||typeof mwPlace!=='function'||typeof BAR_COLS==='undefined')return false;
     const index=10*row+BAR_COLS[slot];
-    if(bar.slots[index]<0)return false;
+    if(bar.slots[index]<0||Number(bar.slots[index]||0)!==expected)return false;
     if(tid&&!skillList.some(s=>s.tid===tid&&!s.passive&&skillGroup(s)!==6))return false;
     mwPlace(index,tid);return true;
   }
@@ -673,7 +692,10 @@ function valid(a) {
       used.add(v.value);return true;
     });
   }
-  if(a.type==='macroSlot')return a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<4&&Number.isInteger(a.value.slot)&&a.value.slot>=0&&a.value.slot<10&&Number.isInteger(a.value.tid)&&a.value.tid>=0;
+  if(a.type==='macroSlot')return a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<4&&Number.isInteger(a.value.slot)&&a.value.slot>=0&&a.value.slot<10&&Number.isInteger(a.value.tid)&&a.value.tid>=0&&Number.isInteger(a.value.expected)&&a.value.expected>=0;
+  if(a.type==='macroSwap')return a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<4&&['from','to'].every(k=>Number.isInteger(a.value[k])&&a.value[k]>=0&&a.value[k]<10)&&['expectedFrom','expectedTo'].every(k=>Number.isSafeInteger(a.value[k]));
+  if(a.type==='extraBuffRow')return Number.isInteger(a.value)&&a.value>=-1&&a.value<4;
+  if(a.type==='allBuffs')return a.value===null;
   if(a.type==='potionAssign')return a.value&&Number.isInteger(a.value.slot)&&a.value.slot>=0&&a.value.slot<=1&&digits(a.value.id);
   if(a.type==='gear')return Number.isInteger(a.value)&&a.value>=0&&a.value<4;
   if(a.type==='gearEdit')return true;
