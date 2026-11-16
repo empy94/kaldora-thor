@@ -1,4 +1,4 @@
-> **Custom-controller compatibility preview**: this branch preserves the companion's original controller profiles and binding workflow while adapting macro execution to Kaldora's updated linked rows. It intentionally retains the companion input path as a temporary exception to the developer's native-only migration request. Assigned inputs are masked from the game's native handler to reduce duplicate actions; unassigned inputs may use the native game. This is not an official API and must be validated on the physical AYN Thor. Older spell bindings based only on session IDs must be rebound; new assignments use stable skill template IDs. The 0.21 source and data-preserving recovery APK remain available.
+> **Current Thor build — 0.26.1:** the companion retains its custom controller profiles and supports Kaldora's linked macro rows. The player confirmed movement, camera, R1/R2 and one X skill binding on an AYN Thor; linked combat, persistence after reconnect and prolonged stability still need testing. This is a temporary compatibility approach, not the game's future official API. Older skill bindings based only on session IDs must be rebound; new assignments use stable skill template IDs. The earlier 0.21 APK and its data-preserving recovery build remain available.
 
 # Kaldora Thor
 
@@ -8,6 +8,8 @@ An independent Android companion for playing Kaldora on the AYN Thor. The game r
 
 *Real recordings from both AYN Thor displays, shown in the supplied console frame. Controller highlights and stick movement are visualizations of recorded input. Chat messages are pixelated.*
 
+[Download the current APK](https://github.com/empy94/kaldora-thor/releases/tag/v0.26.1-custom-preview) · [Previous 0.21 and recovery APKs](https://github.com/empy94/kaldora-thor/releases/tag/v0.21) · [Controller comparison for the game developer](docs/CONTROLLER-COMPARISON.md)
+
 [Watch the full one-minute demonstration](https://github.com/empy94/kaldora-thor/releases/download/v0.15/Kaldora-Thor-demonstration.mp4) · [View a still screenshot](docs/images/thor-live.png)
 
 ## Controller
@@ -16,7 +18,7 @@ The companion's saved skill and macro bindings take priority over the game's con
 
 The **Sets** panel shows the four sets stored by Kaldora. Tap a saved set to equip it, or open the game's editor to create and update sets. When an inventory item is highlighted with the D-pad, the lower screen shows its native item details, occupied and empty sockets, and, where available, the equipped-item comparison. Sets can include equipment and the skill bar. The lower-screen joystick bridge forwards movement and right-stick camera input when the companion has focus.
 
-In Macros, drag a slot onto another slot to move or swap its contents. Choosing a skill first shows its current level and the description supplied by the game; confirm to assign it. Rows display their native Attack and Buff roles. The game still controls the total number of rows and slots.
+In Macros, drag a slot onto another slot to move or swap its contents. Eligible adjacent rows can be linked under the game’s rules, and Attack once requests one pass. Choosing a skill first shows its current level and the description supplied by the game; confirm to assign it. Rows display their native Attack and Buff roles. The game still controls the total number of rows and slots.
 
 The Macros tab shows the live attack-macro status on every panel: ON with its active row, OFF, or — when the game link is unavailable. Attack rows toggle on and off; buff rows use the game’s native one-shot buffs action, including the hero-buff selection. The Map panel displays the map supplied by Kaldora. The launcher uses the game’s supported browser mode, so a separate installed web-app icon is not required. On the login screen, use Play fullscreen if the browser bars are visible.
 
