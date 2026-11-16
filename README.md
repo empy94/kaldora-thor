@@ -2,9 +2,11 @@
 
 An independent Android companion for playing Kaldora on the AYN Thor. The game runs in Chrome on the upper display. The lower display shows game data and sends player-triggered actions through the local USB test bridge.
 
-![Kaldora gameplay and the Map panel captured on an AYN Thor](docs/images/thor-live.png)
+![Animated preview of Kaldora gameplay and the lower-screen companion](docs/images/thor-demo.gif)
 
-*Both displays were captured on a physical AYN Thor running Kaldora Thor 0.7. The console frame comes from the supplied reference.*
+*Real recordings from both AYN Thor displays, shown in the supplied console frame. Controller highlights and stick movement are visualizations of recorded input. Chat messages are pixelated.*
+
+[Watch the full one-minute demonstration](https://github.com/empy94/kaldora-thor/releases/download/v0.15/Kaldora-Thor-demonstration.mp4) · [View a still screenshot](docs/images/thor-live.png)
 
 ## Controller
 
