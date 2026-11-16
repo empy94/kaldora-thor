@@ -95,6 +95,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   }
   const style=document.createElement('style');
   style.textContent='.thor-nav{outline:3px solid #9bdafe!important;outline-offset:2px;box-shadow:0 0 10px #5dbcf2!important}.thor-drag{outline:3px solid #e9bf70!important;outline-offset:2px}';
+  style.textContent+='#shop-list .row.thor-nav{outline:none!important;box-shadow:inset 0 0 0 3px #9bdafe!important}';
   style.textContent+='html.touch .set-row:has(#set-effects),html.touch .set-row:has(#set-bufffx){display:flex!important}';
   document.head.appendChild(style);
   try {
@@ -178,6 +179,11 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     }
     if(command==='accept'){highlighted.click();highlight(undefined);return true}
     const horizontal=command==='left'||command==='right', sign=command==='left'||command==='up'?-1:1;
+    if(!horizontal&&highlighted.matches('#shop-list .row')){
+      const rows=[...document.querySelectorAll('#shop-list .row')].filter(visible);
+      const next=rows[rows.indexOf(highlighted)+sign];
+      if(next){highlight(next);return true}
+    }
     if(horizontal&&highlighted.matches('select,input[type=range]')){
       if(highlighted.tagName==='SELECT')highlighted.selectedIndex=Math.max(0,Math.min(highlighted.options.length-1,highlighted.selectedIndex+sign));
       else highlighted.value=String(Math.max(Number(highlighted.min||0),Math.min(Number(highlighted.max||100),Number(highlighted.value)+sign*Number(highlighted.step||1))));
@@ -253,10 +259,11 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       }}));
     };
     let previous=new Set(),l1Used=false;
+    const repeatAt=new Map();
     function poll(){
       if(window.__thor!==state)return;
       requestAnimationFrame(poll);
-      if(!active()){previous.clear();state.pressed=[];return}
+      if(!active()){previous.clear();repeatAt.clear();state.pressed=[];return}
       const menu=panel();
       if(menu&&!buttons(menu).includes(highlighted)){
         const list=buttons(menu), saved=anchors.get(menu), restored=saved&&(saved.id?document.getElementById(saved.id):document.getElementById(saved.parent)?.children[saved.index]);
@@ -271,6 +278,13 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
         if(pad.axes[7]<-.65)now.add(12);else if(pad.axes[7]>.65)now.add(13);
       }
       state.pressed=[...now];
+      for(const i of [12,13,14,15]){
+        if(!menu||!now.has(i)){repeatAt.delete(i);continue}
+        if(!previous.has(i))repeatAt.set(i,performance.now()+360);
+        else if(performance.now()>=(repeatAt.get(i)||Infinity)){
+          navigate(navButtons[i]);repeatAt.set(i,performance.now()+110);
+        }
+      }
       if(now.has(4)&&!previous.has(4))l1Used=false;
       for(const i of now){
         if(previous.has(i))continue;
