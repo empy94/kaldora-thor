@@ -1,0 +1,11 @@
+# Kaldora update compatibility audit
+
+The supplied changelog describes touch item cards, tapping stones onto gear, moving an item between bags, reserving bags for loot, and a controller fix for handheld devices. It also describes combat rewards, graphics, map and mount changes. These game-side features do not by themselves establish a companion API.
+
+On 2026-11-17 the public game page contained a native controller implementation whose movement events target the game canvas with numeric key codes. The previously documented window-targeted movement issue is therefore addressed in the inspected page. The player confirmed left-stick movement and right-stick camera before and after touching the lower display, plus Start, directional navigation, A/B, spell shortcuts and macros with the existing custom profile. This confirms the combined installed configuration, not the native controller in isolation.
+
+The current Firefox bridge still owns custom button bindings and menu navigation, while passing joystick axes to the game. A regression test checks that native canvas movement is not intercepted or duplicated. The APK continues to store its own bindings. Do not replace them with native defaults or write the game's controller settings without a tested migration and explicit consent.
+
+The phone item card is a dynamically inserted `#inv-card` inside the active inventory, pet or cash bag, not a separate top-level dialog. The bridge gives its actions focus when it opens; B dismisses the card and returns to the previous selection. Other modal dialogs keep their existing navigation path. Item use, selling, disposal, moving and socketing remain controlled and validated by the game.
+
+The inspected page did not expose an identifiable documented Kaldora Thor state/action API. The extension and local Android relay remain necessary for the lower screen. A future native integration requires an agreed, versioned game-side interface for state, actions and custom bindings; do not claim the extension can already be removed. Verify live interaction on a real device before release, including modal confirmations, shop and inventory, card actions, drag and drop, no duplicate gamepad actions, restart, and operation without USB.

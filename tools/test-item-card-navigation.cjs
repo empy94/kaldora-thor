@@ -1,0 +1,31 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const code=fs.readFileSync(require('node:path').join(__dirname,'game-adapter.cjs'),'utf8');
+const fragment=code.slice(code.indexOf('function inputs() {'),code.indexOf('function view('));
+let nextFrame,cardOpen=false;
+const classes=()=>({add(){},remove(){},contains(){return false}});
+const inventory={id:'inventory',isConnected:true,classList:classes(),getClientRects:()=>[1],closest:()=>null,contains:x=>[inventory,slot,card,action].includes(x)};
+const grid={id:'inv-grid',children:[]};
+const slot={isConnected:true,dataset:{item:'1'},parentElement:grid,classList:classes(),getClientRects:()=>[1],closest:()=>inventory,matches:()=>false,scrollIntoView(){}};grid.children=[slot];
+const card={hidden:true,isConnected:true,parentElement:inventory,classList:classes(),getClientRects:()=>card.hidden?[]:[1],contains:x=>x===action,querySelectorAll:()=>[action],closest:()=>inventory};
+const action={isConnected:true,parentElement:card,dataset:{},classList:classes(),getClientRects:()=>[1],closest:()=>inventory,matches:()=>false,scrollIntoView(){}};card.children=[action];
+let nextSelected=false;
+const nextAction={...action,classList:{...classes(),add:name=>{if(name==='thor-nav')nextSelected=true}}};
+card.children=[action,nextAction];card.contains=x=>x===action||x===nextAction;card.querySelectorAll=()=>[action,nextAction];
+inventory.contains=x=>[inventory,slot,card,action,nextAction].includes(x);
+[slot,action,nextAction].forEach(element=>element.getAttribute=()=>null);
+inventory.querySelectorAll=()=>card.hidden?[slot]:[slot,action,nextAction];
+const window={addEventListener(){}};
+const document={head:{appendChild(){}},documentElement:{classList:classes()},hasFocus:()=>true,createElement:()=>({}),getElementById:()=>null,
+ querySelector:s=>s==='#hud.show'?{}:s==='#inv-card:not([hidden])'&&cardOpen&&!card.hidden?card:null,
+ querySelectorAll:s=>s==='.panel.show,[role="dialog"].show'?[inventory]:[]};
+const navigator={getGamepads:()=>[{connected:true,mapping:'standard',axes:[0,0,0,0],buttons:Array.from({length:17},()=>({pressed:false}))}]};
+const ctx={window,document,navigator,Date,performance,requestAnimationFrame:fn=>{nextFrame=fn},setInterval(){},getComputedStyle:()=>({visibility:'visible',zIndex:'1'})};
+vm.createContext(ctx);vm.runInContext(fragment,ctx);ctx.inputs();
+nextFrame();
+card.hidden=false;cardOpen=true;nextFrame();
+assert.equal(window.__thor.navigate('right'),true);
+assert.equal(nextSelected,true,'one press selects the next item-card action');
+assert.equal(window.__thor.navigate('back'),true);
+assert.equal(card.hidden,true,'B closes the item card without closing inventory');
+assert.equal(window.__thor.menu(),'inventory','inventory stays open');
+console.log('Item card takes focus and B returns to the inventory.');
