@@ -42,7 +42,6 @@ function inputs() {
   const menuSelectors=['#npc-menu','#menu-win','#inventory','#shop','#petbag','#bank','#skills','#macro-win','#missions','#character'];
   const visible=x=>x&&x.getClientRects().length&&getComputedStyle(x).visibility!=='hidden';
   let highlighted, highlightOwner, dragSource, dragItem, dragMoved=false, anchor, dragStartedAt=0, lastItemTap=null;
-  let activeItemCard=null, cardReturn=null;
   const panels=()=>[...document.querySelectorAll('.panel.show,[role="dialog"].show')]
     .filter(x=>visible(x)&&!x.closest('[hidden]'));
   const panel=()=>{
@@ -102,14 +101,6 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       return !!menu;
     }
     if(!current)return false;
-    const card=document.querySelector('#inv-card:not([hidden])');
-    if(command==='back'&&card&&visible(card)&&current.contains(card)){
-      card.hidden=true;
-      const target=cardReturn;
-      activeItemCard=null;cardReturn=null;
-      if(target?.isConnected&&visible(target))highlight(target);else highlight(undefined);
-      return true;
-    }
     const list=buttons(current);
     if(command==='back'){
       if(dragSource){dragSource.classList.remove('thor-drag');dragSource=null;dragItem=null;dragMoved=false;return true}
@@ -168,12 +159,6 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     }
     if(command==='accept'){highlighted.click();highlight(undefined);return true}
     const horizontal=command==='left'||command==='right', sign=command==='left'||command==='up'?-1:1;
-    // The phone item card overlays a bag grid. Keep left/right navigation on
-    // its visible actions so an underlying inventory slot cannot steal a press.
-    if(horizontal&&card&&visible(card)&&card.contains(highlighted)){
-      const actions=buttons(card),index=actions.indexOf(highlighted),next=actions[index+sign];
-      if(index>=0&&next){highlight(next);return true}
-    }
     if(!horizontal&&highlighted.matches('#shop-list .row')){
       const rows=[...document.querySelectorAll('#shop-list .row')].filter(visible);
       const next=rows[rows.indexOf(highlighted)+sign];
@@ -268,14 +253,6 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       requestAnimationFrame(poll);
       if(!active()){previous.clear();repeatAt.clear();state.pressed=[];return}
       const menu=panel();
-      const card=document.querySelector('#inv-card:not([hidden])');
-      if(card&&visible(card)&&menu?.contains(card)){
-        if(activeItemCard!==card){
-          cardReturn=highlighted&&menu.contains(highlighted)&&!card.contains(highlighted)?highlighted:null;
-          activeItemCard=card;
-          const first=buttons(card)[0];if(first)highlight(first);
-        }
-      }else if(activeItemCard){activeItemCard=null;cardReturn=null}
       if(menu&&!buttons(menu).includes(highlighted)){
         const list=buttons(menu), saved=anchors.get(menu), restored=saved&&(saved.id?document.getElementById(saved.id):document.getElementById(saved.parent)?.children[saved.index]);
         highlight(list.includes(restored)?restored:list[0]);

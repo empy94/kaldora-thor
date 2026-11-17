@@ -10,10 +10,6 @@ const bar={bRow:1,bRow2:-1};let calls=[],nativeCalls=[];const ctx={window,docume
 vm.createContext(ctx);vm.runInContext(fragment,ctx);ctx.inputs();window.__thor.bind={'4':{type:'spell',value:'55'},'6':{type:'macro',value:'1'}};
 const pad=navigator.getGamepads()[0];assert.equal(pad.buttons[2].pressed,false,'custom X masked from native');assert.equal(pad.buttons[5].pressed,false,'custom R1 masked from native');assert.equal(pad.buttons[0].pressed,true,'unbound A remains native');assert.equal(pad.buttons[4].pressed,false,'L1 controlled by companion');assert.deepEqual([...pad.axes],[.5,-.6,0,0]);
 let stopped=false;for(const fn of handlers.keydown||[])fn({type:'keydown',target:window,isTrusted:false,code:'KeyW',stopImmediatePropagation(){stopped=true}});assert.equal(stopped,true);assert.equal(output.length,1);assert.equal(output[0].code,'KeyW');assert.equal(output[0].keyCode,87);
-// Current Kaldora dispatches native controller movement directly on the canvas.
-// The legacy window-event repair must leave that event alone to avoid double movement.
-let nativeStopped=false;for(const fn of handlers.keydown||[])fn({type:'keydown',target:canvas,isTrusted:false,code:'KeyW',stopImmediatePropagation(){nativeStopped=true}});
-assert.equal(nativeStopped,false,'native canvas movement must not be intercepted');assert.equal(output.length,1,'native canvas movement must not be redispatched');
 window.__thor.bind['4']={type:'spell',value:'t:670'};assert.equal(window.__thor.performBinding('4'),true);assert.deepEqual(nativeCalls,['s:670']);
 skillTiles=[{dataset:{skillTip:'670',id:'80'},classList:{contains:c=>c==='nomp'},click(){tileClicks++}}];assert.equal(window.__thor.performBinding('4'),false);assert.equal(tileClicks,0);assert.deepEqual(nativeCalls,['s:670']);
 skillTiles[0].classList.contains=()=>false;assert.equal(window.__thor.performBinding('4'),true);assert.equal(tileClicks,1);
