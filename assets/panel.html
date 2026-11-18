@@ -239,6 +239,12 @@ nav button img{flex:none;margin:0;width:16px;height:16px}
 #macros>.tools button{padding-inline:5px}
 #nativeControls:not([hidden]){display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin:0}
 #nativeControls button{min-width:0;padding:0}
+#contextLegend{display:flex;flex:none;align-items:center;gap:4px 10px;flex-wrap:wrap;padding:0 3px;color:#aac0c9;font-size:11px;line-height:1.2}
+#contextLegend.local-dialog{position:fixed;z-index:35;bottom:4px;left:9px;right:9px;justify-content:center;pointer-events:none}
+#contextLegend[hidden],body.keyboard-open #contextLegend{display:none}
+#contextLegend span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+#contextLegend kbd{min-width:16px;padding:2px 4px;border:1px solid #496370;border-radius:4px;background:#14242c;color:#d3e6ed;text-align:center;font:700 10px system-ui}
+#contextLegend strong{margin-left:auto;color:#ead3a0;font-size:11px;white-space:nowrap}
 #nativeControls button:nth-last-child(2){border-color:#759dab;color:#d9f4fa}
 @media(max-width:480px){nav button,nav button[data-tab="macros"]{flex-direction:column;gap:2px}nav button img{width:15px;height:15px}nav .macroTabLabel{display:flex;align-items:center;gap:3px}}
 </style>
@@ -294,6 +300,7 @@ nav button img{flex:none;margin:0;width:16px;height:16px}
 <section id="sets" hidden><div id="gearSets" class="gearSets"></div><div class="tools"><button id="editGearSets">Edit sets in game</button></div></section>
 <section id="itemOverlay" hidden aria-label="Item details"><div class="itemHeader"><span id="itemLockState" aria-live="polite"></span><button id="itemLock" type="button" hidden><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 7V5a4 4 0 0 1 8 0v2h1v8H3V7zm2 0h4V5a2 2 0 0 0-4 0z" fill="currentColor"/></svg><span></span></button><button id="closeItemDetails">Back to panel</button></div><div id="itemCards"></div></section>
 <section id="menus" hidden><div id="npc" hidden></div><div class="tools"><button id="inventory">Bag</button><button id="pet">Pet</button><button id="bank">Storage</button></div><div id="bagTabs" class="tools"></div><div id="bagGrid"></div><p id="itemInfo"></p><div class="tools"><button id="moveItem" hidden>Move here</button><button id="clearItem" hidden>Cancel move</button></div></section>
+<aside id="contextLegend" aria-label="Controller shortcuts" hidden></aside>
 <div id="skillConfirm" hidden role="dialog" aria-modal="true" aria-labelledby="skillConfirmName"><div class="potionSheet"><div class="potionSheetHeader"><img id="skillConfirmIcon" alt="" hidden style="width:44px;height:44px;object-fit:contain;border:1px solid #788785;border-radius:3px"><strong id="skillConfirmName"></strong><button id="cancelSkillConfirm" type="button">Back</button></div><div id="skillConfirmDetails"></div><button id="applySkillConfirm" type="button">Add to row</button></div></div>
 <div id="socketPicker" hidden role="dialog" aria-modal="true" aria-labelledby="socketTitle"><div class="potionSheet"><div class="potionSheetHeader"><strong id="socketTitle">Choose a stone</strong><button id="closeSocketPicker" type="button">Close</button></div><div id="socketOptions"></div><p id="socketMessage" style="color:#e6d5ad;font-size:13px"></p><button id="confirmSocket" type="button" hidden style="min-height:46px">Confirm insertion</button></div></div>
 <div id="potionPicker" hidden role="dialog" aria-modal="true" aria-labelledby="potionPickerTitle"><div class="potionSheet"><div class="potionSheetHeader"><strong id="potionPickerTitle"></strong><button id="closePotionPicker" type="button">Close</button></div><div id="potionOptions"></div><p id="potionEmpty" hidden>No compatible potions in your inventory.</p></div></div>
@@ -406,7 +413,7 @@ window.padKey=k=>{
   return;
  }
  const native={DPAD_UP:'up',DPAD_DOWN:'down',DPAD_LEFT:'left',DPAD_RIGHT:'right',DPAD_CENTER:'accept',BUTTON_A:'downAccept',BUTTON_B:'back'};
- if(d.nativeMenu){if(k==='BUTTON_START'){send('nav','start');return}if(native[k]){if(mode)toggleNav();send('nav',native[k]);return}}
+ if(d.nativeMenu){if(k==='BUTTON_X'&&!localHeld.has(4)&&d.menuContext?.kind==='bag'&&activeBindings()['4']?.value!=='itemLock'){send('nav','mark');return}if(k==='BUTTON_START'){send('nav','start');return}if(native[k]){if(mode)toggleNav();send('nav',native[k]);return}}
  if(mode){
   if(k==='BUTTON_START'){toggleNav();if(!runAssigned('START'))send('nav','start');return}
   if(k==='BUTTON_SELECT'||k==='BUTTON_MODE'){toggleNav();return}
@@ -873,10 +880,37 @@ pkToggle.onclick=()=>{
  const enabled=d.pk===false;
  send('pk',enabled,()=>notice(enabled?'PK on · attacks can target players':'PK off'));
 };
+function drawContextLegend(){
+ const legend=$('contextLegend'),context=d.menuContext,menu=d.nativeMenu;
+ const local=['skillConfirm','socketPicker','potionPicker','captureDialog'].some(id=>!$(id).hidden);
+ const recording=!$('captureDialog').hidden;
+ legend.classList.toggle('local-dialog',local);
+ const marking=!local&&context?.kind==='bag'&&Number.isInteger(context.marked);
+ const canMark=context?.kind==='bag'&&activeBindings()['4']?.value!=='itemLock';
+ const entries=!menu&&!local?[]:recording?[]:[
+  ['D-pad','Navigate'],
+  ['A',local?'Confirm':marking?'Mark / choose':menu==='pick'?'Choose':menu==='portal'?'Travel':'Confirm'],
+  ...(!local&&!marking&&['inventory','cashbag','bag','petbag','bank','character'].includes(menu)&&context?.kind!=='card'?[['Hold A','Move item']]:[]),
+  ...(!local&&canMark?[['X',marking?'Mark / unmark':'Multi-select']]:[]),
+  ...(!local&&menu==='pick'?[]:[['B',marking?'Cancel selection':context?.kind==='card'?'Close item':context?.kind==='confirm'?'Cancel':'Back']])
+ ];
+ changed('contextLegend',[entries,marking?context.marked:null],()=>{
+  legend.hidden=!entries.length;
+  legend.replaceChildren(...entries.map(([key,label])=>{
+   const item=document.createElement('span'),cap=document.createElement('kbd');
+   cap.textContent=key;item.append(cap,document.createTextNode(label));return item;
+  }));
+  if(marking){const count=document.createElement('strong');count.textContent=context.marked+' selected';legend.append(count)}
+ });
+}
 let rendered={};
+const legendObserver=new MutationObserver(drawContextLegend);
+for(const id of ['skillConfirm','socketPicker','potionPicker','captureDialog'])
+ legendObserver.observe($(id),{attributes:true,attributeFilter:['hidden']});
 function changed(id,value,fn){const key=JSON.stringify(value);if(rendered[id]===key)return;rendered[id]=key;fn(value)}
 window.renderGame=state=>{
  d=state;
+ drawContextLegend();
  observeChat(d.chatActivity);
  const badge=$('macroBadge'), macroActive=d.online&&d.macro===true;
  const activeRow=macroActive&&Number.isInteger(Number(d.activeRow))&&d.activeRow!==''&&d.activeRow!=null&&Number(d.activeRow)>=0?Number(d.activeRow)+1:null;

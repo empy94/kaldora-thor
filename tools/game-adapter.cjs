@@ -1,11 +1,11 @@
 function inputs() {
-  if(window.__thor?.version===41){
+  if(window.__thor?.version===42){
     if(Date.now()>=window.__thor.until)window.__thor.pk=false;
     window.__thor.until=Date.now()+4000;return;
   }
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:41,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
+  const state=window.__thor={version:42,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
   // Kaldora uses part 9 for both shields and off-hand weapons. Its own
   // drawDoll / stoneRisk code identifies a weapon by positive max damage.
   state.socketGearType=item=>{
@@ -76,7 +76,7 @@ function inputs() {
   const anchors=new WeakMap();
   const activeCard=owner=>{
     const card=document.querySelector('#inv-card:not([hidden])');
-    return visible(card)&&owner.contains(card)?card:null;
+    return visible(card)&&owner?.contains(card)?card:null;
   };
   function restoreAnchor(owner,list){
     const card=activeCard(owner);
@@ -125,6 +125,30 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     }
   }catch{}
 
+  const canMarkBag=owner=>owner?.id==='inventory'&&!activeCard(owner)&&
+    typeof markMode==='function'&&typeof bagMarks!=='undefined'&&typeof inTab==='function';
+  const markingBag=owner=>canMarkBag(owner)&&bagMarks!==null;
+  function markBagSlot(owner){
+    if(!canMarkBag(owner)||dragSource||!highlighted?.matches('#inv-grid .slot[data-item]'))return false;
+    const id=highlighted.dataset.item,item=ownedItem(id);
+    if(!item||item.locked||!inTab(item,item.layer))return false;
+    lastItemTap=null;
+    if(!markingBag(owner))markMode(true);
+    const findSlot=()=>[...owner.querySelectorAll('#inv-grid .slot[data-item]')].find(slot=>slot.dataset.item===id);
+    const slot=findSlot();
+    if(!slot)return false;
+    slot.click();
+    highlight(findSlot()||restoreAnchor(owner,buttons(owner)));
+    return true;
+  }
+  state.menuContext=()=>{
+    const current=panel();
+    if(canMarkBag(current))return {kind:'bag',marked:markingBag(current)?bagMarks.size:null};
+    if(activeCard(current))return {kind:'card'};
+    if(current?.matches('dialog[open],[role="dialog"][aria-modal="true"]'))return {kind:'confirm'};
+    return null;
+  };
+
   function navigate(command){
     const current=panel();
     if(command==='start'){
@@ -135,10 +159,12 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       return !!menu;
     }
     if(!current)return false;
+    if(command==='mark')return markBagSlot(current);
     const list=buttons(current);
     const card=activeCard(current), cardHere=!!card;
     if(command==='back'){
       if(dragSource){dragSource.classList.remove('thor-drag');dragSource=null;dragItem=null;dragMoved=false;return true}
+      if(markingBag(current)){markMode(false);highlight(restoreAnchor(current,buttons(current)));return true}
       if(cardHere){card.hidden=true;const previous=cardReturn;cardReturn=null;highlight(previous?.isConnected&&visible(previous)?previous:restoreAnchor(current,buttons(current)));return true}
       const close=current.querySelector('h3 .close,.close,[data-close="'+current.id+'"],#ask-no,[data-action="cancel"],button[value="cancel"]');
       if(close&&visible(close))close.click();
@@ -152,6 +178,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       if(command!=='accept'&&command!=='downAccept')return true;
     }
     if(command==='downAccept'){
+      if(markingBag(current)&&highlighted.matches('#inv-grid .slot'))return markBagSlot(current);
       if(highlighted.matches('select')){
         highlighted.selectedIndex=(highlighted.selectedIndex+1)%highlighted.options.length;
         highlighted.dispatchEvent(new Event('change',{bubbles:true}));return true;
@@ -197,6 +224,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       dragMoved=false;return true;
     }
     if(command==='accept'){
+      if(markingBag(current)&&highlighted.matches('#inv-grid .slot'))return markBagSlot(current);
       const selected=highlighted;
       selected.click();
       if(selected.isConnected&&visible(selected))highlight(selected);
@@ -221,7 +249,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     const [x,y]=center(highlighted);
     let best=null,score=Infinity;
     const modal=current.matches('dialog[open],[role="dialog"][aria-modal="true"]');
-    const candidates=(modal||current.id==='pick'||current.id==='portal')?list:[...new Set(panels().flatMap(buttons))];
+    const candidates=(modal||current.id==='pick'||current.id==='portal'||markingBag(current))?list:[...new Set(panels().flatMap(buttons))];
     for(const candidate of candidates){
       if(candidate===highlighted)continue;
       const [cx,cy]=center(candidate), along=(horizontal?cx-x:cy-y)*sign, across=Math.abs(horizontal?cy-y:cx-x);
@@ -338,6 +366,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
           const combo=now.has(4)&&i!==4?'C4_'+i:null,key=physicalKeys[i];
           if(combo&&state.bind[combo]?.type==='action'&&state.bind[combo].value==='itemLock'){l1Used=true;state.performBinding(combo)}
           else if(key&&!navButtons[i]&&i!==4&&state.bind[key]?.type==='action'&&state.bind[key].value==='itemLock')state.performBinding(key);
+          else if(i===2&&!now.has(4))navigate('mark');
           else if(i===9)navigate('start');else if(navButtons[i])navigate(i===0?'downAccept':navButtons[i]);continue;
         }
         if(i===4)continue;
@@ -626,7 +655,7 @@ function view(install) {
     nativePad:typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function',
     nativePadMap:typeof pad!=='undefined'&&Array.isArray(pad?.map)?pad.map.map(value=>({value,label:(typeof PAD_ACTIONS!=='undefined'?PAD_ACTIONS.flatMap(group=>group[1]).find(option=>option[0]===value)?.[1]:null)||value||'Nothing'})):[],
     buffRows:typeof bar!=='undefined'&&bar?[bar.bRow??1,bar.bRow2??-1]:[],attackRow:typeof bar!=='undefined'&&bar?bar.mRow??0:null,
-    fullscreen:!!document.fullscreenElement,nativeMenu:window.__thor.menu(),bindings:window.__thor.bind,lastMacro:window.__thor.lastMacro,nativeUpdate:typeof macroSpan==='function'&&typeof padTapValue==='function',macroChains:window.__thor.chainInfo?.(),
+    fullscreen:!!document.fullscreenElement,nativeMenu:window.__thor.menu(),menuContext:window.__thor.menuContext(),bindings:window.__thor.bind,lastMacro:window.__thor.lastMacro,nativeUpdate:typeof macroSpan==='function'&&typeof padTapValue==='function',macroChains:window.__thor.chainInfo?.(),
     activeRow:typeof macroRow==='number'?String(macroRow):'',inventory,npc,catalog,realRows,heroes,select:window.__thor.select||0,focused:document.hasFocus(),level:txt('#level'),hp:txt('#hp-text'),mp:txt('#mp-text'),xp:txt('#exp-text'),
     bars:['hp','mp','exp'].map(k=>parseFloat(q('#'+k+'-fill')?.style.width)||0),
     macro:q('#macro-on')?!q('#macro-on').hidden:null,map,
@@ -843,7 +872,7 @@ function valid(a) {
   if(a.type==='itemLock')return !!a.value&&digits(a.value.id)&&typeof a.value.locked==='boolean';
   if(a.type==='socketInsert')return !!a.value&&digits(a.value.item)&&digits(a.value.stone);
   if(a.type==='effects')return ['0','1','2'].includes(String(a.value));
-  if(a.type==='nav')return ['start','back','left','right','up','down','accept','downAccept','upAccept'].includes(a.value);
+  if(a.type==='nav')return ['start','back','left','right','up','down','accept','downAccept','upAccept','mark'].includes(a.value);
   if(a.type==='combat')return ['target','attack'].includes(a.value);
   if(a.type==='bind'){
     if(!a.value||typeof a.value!=='object')return false;

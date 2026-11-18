@@ -4,7 +4,7 @@ const fragment=code.slice(code.indexOf('function inputs() {'),code.indexOf('func
 const handlers={},output=[];let skillTiles=[],tileClicks=0;const window={addEventListener:(type,fn)=>(handlers[type]??=[]).push(fn)};
 const gamepad={mapping:'',axes:[.5,-.6,0,0],buttons:Array.from({length:17},()=>({pressed:true,touched:true,value:1}))};
 const navigator={getGamepads:()=>[gamepad]};const canvas={dispatchEvent:e=>output.push(e)};
-const document={head:{appendChild(){}},documentElement:{classList:{add(){}}},querySelectorAll:s=>s.startsWith('#bar-rows .skill')?skillTiles:[],querySelector:s=>s==='#hud.show'?{}:null,getElementById:id=>id==='canvas'?canvas:null,createElement:()=>({textContent:''}),hasFocus:()=>true};
+const document={head:{appendChild(){}},documentElement:{classList:{add(){}}},querySelectorAll:s=>s.startsWith('#bar-rows .skill')?skillTiles:[],querySelector:s=>s.startsWith('#hud.show')?{}:null,getElementById:id=>id==='canvas'?canvas:null,createElement:()=>({textContent:''}),hasFocus:()=>true};
 class KeyboardEvent{constructor(type,options){this.type=type;Object.assign(this,options)}}
 const bar={bRow:1,bRow2:-1};let calls=[],nativeCalls=[];const ctx={window,document,navigator,KeyboardEvent,localStorage:{getItem:()=>null},requestAnimationFrame(){},setInterval(){},Date,Module:{ccall(){}},bar,BAR_COLS:[0],macroRow:-1,macroIds:()=>[42,43],toggleMacro:row=>{calls.push(row);ctx.macroRow=row},slotSkill:()=>({id:42}),skillList:[{id:80,tid:670,passive:false}],padTapValue:v=>nativeCalls.push(v),padFrame(){},macroSpan(){},getComputedStyle:()=>({visibility:'visible'})};
 vm.createContext(ctx);vm.runInContext(fragment,ctx);ctx.inputs();window.__thor.bind={'4':{type:'spell',value:'55'},'6':{type:'macro',value:'1'}};
