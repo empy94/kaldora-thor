@@ -1,8 +1,11 @@
 function inputs() {
-  if(window.__thor?.version===40){window.__thor.until=Date.now()+4000;return}
+  if(window.__thor?.version===41){
+    if(Date.now()>=window.__thor.until)window.__thor.pk=false;
+    window.__thor.until=Date.now()+4000;return;
+  }
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:40,until:Date.now()+4000,held:new Map(),bind:{}};
+  const state=window.__thor={version:41,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
   // Kaldora uses part 9 for both shields and off-hand weapons. Its own
   // drawDoll / stoneRisk code identifies a weapon by positive max damage.
   state.socketGearType=item=>{
@@ -361,7 +364,10 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       if(stable){
         const tile=[...document.querySelectorAll('#bar-rows .skill[data-skill-tip]')].find(x=>x.dataset.skillTip===stable[1]);
         if(tile){if(tile.classList.contains('nomp'))return false;tile.click();return true}
-        if(typeof padTapValue==='function'&&typeof skillList!=='undefined'&&skillList.some(x=>String(x.tid)===stable[1]&&!x.passive)){padTapValue('s:'+stable[1]);return true}
+        if(typeof padTapValue==='function'&&typeof skillList!=='undefined'){
+          const skill=skillList.find(x=>String(x.tid)===stable[1]&&!x.passive);
+          if(skill){if(pkEnabled())castSkill(skill,true);else padTapValue('s:'+stable[1]);return true}
+        }
         return false;
       }
       // Old instance IDs can point at a different skill after reconnecting.
@@ -396,9 +402,35 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   };
   state.combat=type=>{
     const x=document.getElementById(type==='target'?'t-target':'t-attack');
+    if(type==='attack'&&pkEnabled()&&!panel())return forcedAttack();
     if(!x)return false;
+    if(type==='attack'&&typeof x.onclick==='function'){x.click();return true}
     x.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true}));return true;
   };
+  state.pkSupported=()=>typeof castSkill==='function'&&typeof Module!=='undefined'&&typeof Module.ccall==='function'&&
+    typeof skillList!=='undefined'&&Array.isArray(skillList)&&skillList.some(skill=>skill.tree===undefined);
+  const pkEnabled=()=>state.pk&&window.__thor===state&&Date.now()<state.until;
+  const forcedAttack=()=>{
+    if(!state.pkSupported())return false;
+    if(!Module.ccall('viewer_target_if_none','number',[],[]))castSkill(skillList.find(skill=>skill.tree===undefined),true);
+    return true;
+  };
+  window.addEventListener('keydown',event=>{
+    if(!pkEnabled()||event.ctrlKey||event.metaKey||!document.querySelector('#hud.show')||panel()||
+        (typeof typing==='function'&&typing())||event.target?.closest?.('input,select,textarea,[contenteditable=true]'))return;
+    if(/^(Digit[0-9]|Minus|Equal)$/.test(event.code))Object.defineProperty(event,'ctrlKey',{value:true,configurable:true});
+    else if(event.code==='Space'&&!event.altKey&&!event.shiftKey&&(event.repeat||forcedAttack())){
+      event.preventDefault();event.stopImmediatePropagation();
+    }
+  },true);
+  window.addEventListener('click',event=>{
+    if(!pkEnabled()||!document.querySelector('#hud.show'))return;
+    if(event.target?.closest?.('#t-attack')&&forcedAttack()){
+      event.preventDefault();event.stopImmediatePropagation();
+    }else if(event.target?.closest?.('#bar-rows .skill[data-id]')){
+      Object.defineProperty(event,'ctrlKey',{value:true,configurable:true});
+    }
+  },true);
   const codes={KeyW:87,KeyA:65,KeyS:83,KeyD:68};
   const dispatch=(type,code,keyCode)=>{
     const e=new KeyboardEvent(type,{code,key:code.slice(-1).toLowerCase(),bubbles:true,cancelable:true,keyCode,which:keyCode});
@@ -475,6 +507,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
 function view(install) {
   const q=s=>document.querySelector(s), txt=s=>q(s)?.textContent.trim().slice(0,400)||'';
   if(!q('#hud.show')){
+    if(window.__thor)window.__thor.pk=false;
     const characterSelect=!!q('#select.show #pick-view:not([hidden])');
     if(characterSelect)install();
     return {online:false,characterSelect,nativeMenu:characterSelect?'pick':null};
@@ -588,7 +621,7 @@ function view(install) {
     if(sender&&!line.classList.contains('system')&&!line.hasAttribute('data-ai')&&
       !(line.classList.contains('ch-whisper')&&sender.textContent.startsWith('To ')))chatState.total++;
   }
-  return {online:true,potions,effects:typeof settings!=='undefined'?String(settings.effects):null,sets,itemDetails,pressed:window.__thor.pressed||[],lastPress:window.__thor.lastPress,
+  return {online:true,potions,pk:window.__thor.pkSupported()?window.__thor.pk:null,effects:typeof settings!=='undefined'?String(settings.effects):null,sets,itemDetails,pressed:window.__thor.pressed||[],lastPress:window.__thor.lastPress,
     chatActivity:{session:chatState.session,total:chatState.total},
     nativePad:typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function',
     nativePadMap:typeof pad!=='undefined'&&Array.isArray(pad?.map)?pad.map.map(value=>({value,label:(typeof PAD_ACTIONS!=='undefined'?PAD_ACTIONS.flatMap(group=>group[1]).find(option=>option[0]===value)?.[1]:null)||value||'Nothing'})):[],
@@ -615,6 +648,12 @@ function action(a) {
   const q=s=>document.querySelector(s);
   if(a.type==='nav'&&q('#select.show #pick-view:not([hidden])'))return window.__thor?.navigate(a.value)||false;
   if(!q('#hud.show'))return false;
+  if(a.type==='pk'){
+    const state=window.__thor;
+    if(!state||typeof a.value!=='boolean'||(a.value&&!state.pkSupported?.()))return false;
+    state.pk=a.value;
+    return true;
+  }
   if(a.type==='heroBuff'){
     if(typeof heroUse!=='function'||typeof heroUsed!=='function'||!heroUsed().length||typeof heroReady!=='number'||performance.now()<heroReady)return false;
     heroUse();return true;
@@ -800,6 +839,7 @@ function valid(a) {
   const row=v=>typeof v==='string'&&/^[0-3]$/.test(v);
   if(a.type==='nativePad')return Number.isInteger(a.value)&&a.value>=0&&a.value<=15;
   if(a.type==='combo')return typeof a.value==='string'&&/^(?:[4-6]|A[3-6]|C4_[0-35-7]|L1|L3|R3|START|SELECT|UP|DOWN|LEFT|RIGHT)$/.test(a.value);
+  if(a.type==='pk')return typeof a.value==='boolean';
   if(a.type==='itemLock')return !!a.value&&digits(a.value.id)&&typeof a.value.locked==='boolean';
   if(a.type==='socketInsert')return !!a.value&&digits(a.value.item)&&digits(a.value.stone);
   if(a.type==='effects')return ['0','1','2'].includes(String(a.value));
