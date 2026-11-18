@@ -1,0 +1,11 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+let listener; const token='a'.repeat(64);
+const browser={tabs:{onRemoved:{addListener(){}},query:async()=>[]},runtime:{onMessage:{addListener(fn){listener=fn}}}};
+const ctx={browser,URL,AbortSignal,Date,fetch:async()=>({ok:true,json:async()=>({})})};
+vm.createContext(ctx);vm.runInContext(fs.readFileSync('extension/background.js','utf8'),ctx);
+(async()=>{const sender={tab:{id:12},url:'https://play.kaldora.eu/'};
+ await listener({type:'snapshot',token,data:{snapshot:{online:false}}},sender);
+ assert.equal((await listener({type:'resume'},sender)).token,token);
+ assert.equal(listener({type:'resume'},{...sender,tab:{id:13}}),undefined);
+ assert.equal(listener({type:'resume'},{...sender,url:'https://example.com/'}),undefined);
+ console.log('Bridge resumes only in its original Kaldora tab.');})().catch(e=>{console.error(e);process.exitCode=1});

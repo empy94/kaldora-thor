@@ -19,6 +19,9 @@ async function reuseGameTab(sender, token) {
   return {reused:false};
 }
 browser.runtime.onMessage.addListener((request, sender) => {
+  if (request?.type === 'resume' && sender.tab?.id === activeTab && activeToken &&
+      sender.url && new URL(sender.url).origin === 'https://play.kaldora.eu')
+    return Promise.resolve({token:activeToken});
   if (!sender.url || new URL(sender.url).origin !== 'https://play.kaldora.eu' ||
       !/^[a-f0-9]{64}$/.test(request?.token || '') || sender.tab?.id == null) return;
   if (request.type === 'claim') {

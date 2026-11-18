@@ -30,6 +30,7 @@ form button{flex:0 0 auto;padding:0 9px}.slot{font-weight:normal}.slot:disabled{
 
 #chat:not([hidden]){display:flex;flex-direction:column}
 #chatLog{flex:1;overflow:auto;min-height:0;margin-bottom:5px}
+body.keyboard-open:has(#message:focus) nav,body.keyboard-open:has(#message:focus) #potionBar,body.keyboard-open:has(#message:focus) #filters{display:none}
 form{margin:0;flex-wrap:nowrap}
 #macroSlots,#bagGrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-bottom:6px}
 #macroSlots .slot,#bagGrid .slot{min-height:36px;padding:2px}
@@ -207,6 +208,21 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 @media(max-width:420px){#potionOptions{grid-template-columns:1fr}.potionQuick .potionName{font-size:11px}}
 
 #chainTools[hidden]{display:none}#chainHint{font-size:12px;color:#b3c9cf;align-self:center}
+/* Quiet framing leaves the game's artwork and the active state in focus. */
+body{gap:5px}
+nav{gap:3px}
+nav button{min-height:46px;border-color:#2d424b;background:linear-gradient(#24363f,#18262d);box-shadow:none}
+nav button[aria-selected=true]{border-color:#8fc2ce;background:linear-gradient(#35515a,#203840);box-shadow:inset 0 -3px #a4d8e6}
+section{border-color:#2a3d45;background:linear-gradient(150deg,#17262d,#101a20)}
+#controls .controllerDetail{border-color:#30464f;background:#182b32}
+.macroBadge{color:#c5d1d3;background:#18252a;border-color:#53676b}
+.macroBadge.on{color:#fff1c5;background:#594824;border-color:#e1bd70;box-shadow:0 0 7px #d9ad5655}
+.macroBadge.unknown{color:#899da1;background:#172126;border-color:#36474a}
+#potionBar{gap:4px}
+.heroSkills{overflow:auto;min-height:0;flex:1}.heroSkills[hidden],#skillTools[hidden]{display:none}.heroSkills .heroGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px}.heroSkills .heroEntry{min-height:58px;display:flex;align-items:center;gap:7px;text-align:left;padding:6px}.heroSkills .heroEntry img{width:40px;height:40px;margin:0;object-fit:contain}.heroSkills .heroEntry span{min-width:0;font-size:12px;overflow-wrap:anywhere}.heroSkills .heroEntry.off{opacity:.5}.heroInfo{margin:8px 0;color:#bed0d4;white-space:pre-wrap}.heroBuffButton{min-height:44px;width:100%;margin-top:8px}#macroPalette button.placed{filter:grayscale(1);opacity:.45}#macroPalette button.placed img{filter:grayscale(1)}
+.potionQuick{justify-content:center;min-height:44px;gap:8px;padding:3px 8px;border-color:#314a52;background:linear-gradient(#21343c,#17272d)}
+.potionQuick img{width:34px;height:34px;margin:0}
+.potionQuick .potionKind,.potionQuick .potionCount{font-size:13px}
 </style>
 
 <nav aria-label="Panels">
@@ -219,12 +235,11 @@ nav button[data-tab="macros"] img{flex:none;margin:0;width:17px;height:17px}
 </nav>
 <div id="potionBar" aria-label="Potion slots"><button id="potionHp" class="potionQuick hp" type="button" disabled></button><button id="potionMp" class="potionQuick mp" type="button" disabled></button></div>
 <div id="vitals" hidden><div id="level">Level —</div><div class="meter"><b id="hp">HP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="mp">MP —</b><div class="track"><div class="fill"></div></div></div><div class="meter"><b id="xp">EXP —</b><div class="track"><div class="fill"></div></div></div></div>
-<section id="sorts"><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="skillCategories" class="chips"></div><div id="skills"></div><div class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
+<section id="sorts"><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="skillCategories" class="chips"></div><div id="skills"></div><div id="heroSkills" class="heroSkills" hidden><div id="heroGrid" class="heroGrid"></div><p id="heroInfo" class="heroInfo"></p><button id="heroBuff" class="heroBuffButton" type="button">Buff up</button></div><div id="skillTools" class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
 <section id="map" hidden><p id="mapHint">Waiting for the game map…</p><img id="mapImage" alt="Kaldora map" hidden></section>
 <section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
 <section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="macroRows" class="tools"></div><div id="chainTools" class="tools" hidden><button id="chainRow" type="button"></button><span id="chainHint"></span></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button><button id="runMacroOnce">Attack once</button></div><p id="macroState"></p></section>
 <section id="controls" hidden>
-<div class="tools"><label for="effectsSetting">Effects</label><select id="effectsSetting" aria-label="Effects"><option value="0">Off</option><option value="1">Minimal</option><option value="2">Full</option></select></div>
 <div class="controller">
 <svg viewBox="0 0 360 222" role="img" aria-label="Xbox-style controller showing inputs">
  <path class="shell" d="M87 39c-24 0-42 17-51 44l-24 82c-11 42 24 62 50 44l52-45c10-9 23-13 38-13h56c15 0 28 4 38 13l52 45c26 18 61-2 50-44l-24-82c-9-27-27-44-51-44z"/>
@@ -385,7 +400,7 @@ window.padKey=k=>{
  if(index===4){l1Used=false;return}
  if(localHeld.has(4)&&index!=null&&activeBindings()['C4_'+index]){l1Used=true;runAssigned('C4_'+index);return}
  if(index!=null&&runAssigned(sourceFor[index]))return;
- if(k==='BUTTON_START'){select(4);send('nav','start');return}
+ if(k==='BUTTON_START'){send('nav','start');return}
  if(k==='BUTTON_THUMBL'||k==='BUTTON_THUMBR'){send('combat',k==='BUTTON_THUMBL'?'target':'attack');return}
  if(k==='BUTTON_SELECT'||k==='BUTTON_MODE'){toggleNav();return}
  if(padCodes[k])send('pad',padCodes[k]);
@@ -637,9 +652,17 @@ function drawSkills(slots){
  }
  for(const x of slots)if(x.id&&!used.has(x.id)){ordered.push({...x,label:''});used.add(x.id)}
  const sorted=orderedSkillEntries(ordered);
- const categories=['All',...new Set(sorted.map(x=>x.group||'Other'))];
+ const categories=['All',...new Set(sorted.map(x=>x.group||'Other')),'Heroes'];
  const selectedCategory=categories.includes(skillCategory)?skillCategory:'All';
  $('skillCategories').replaceChildren(...categories.map(name=>btn(name,()=>{skillCategory=name;savePanelPreference('skillCategory',name);drawSkills(d.slots||[])},name===selectedCategory)));
+ $('skills').hidden=selectedCategory==='Heroes';$('heroSkills').hidden=selectedCategory!=='Heroes';$('skillTools').hidden=selectedCategory==='Heroes';
+ if(selectedCategory==='Heroes'){
+  const heroes=d.heroes||[];
+  $('heroInfo').textContent=d.heroes==null?'Hero buffs are unavailable.':heroes.length?'Select a buff to see its details. Buff up uses the buffs enabled in the game.':'No hero buffs available.';
+  $('heroGrid').replaceChildren(...heroes.map(hero=>{const b=btn('',()=>{$('heroInfo').textContent=hero.name+' · '+hero.hero+' · Level '+hero.level+'\n'+(hero.description||[]).join('\n')+(hero.enabled?'':'\nDisabled in the game.');});b.className='heroEntry'+(hero.enabled?'':' off');addIcon(b,hero.icon);const label=document.createElement('span');label.textContent=hero.name+' · '+hero.hero;b.append(label);return b}));
+  $('heroBuff').disabled=!d.online||!heroes.some(hero=>hero.enabled);$('heroBuff').onclick=()=>send('heroBuff','',()=>notice('Buff up requested'));
+  return;
+ }
  const shown=selectedCategory==='All'?sorted:sorted.filter(x=>(x.group||'Other')===selectedCategory);
  const layout=JSON.stringify([selectedCategory,shown.map(x=>[x.id,x.icon,x.label,x.group,x.name])]);
  if(layout!==skillLayout){
@@ -700,7 +723,8 @@ function drawMacros(){
  $('macroPalette').hidden=!pickMacro;
  $('macroPalette').replaceChildren(...skills.map(s=>{
   const b=btn(s.icon?'':s.name,()=>showSkillConfirm(s));
-  b.title=s.name;b.setAttribute('aria-label',s.name);addIcon(b,s.icon);return b;
+  const placed=slots.some(slot=>!slot.item&&String(slot.tid)===String(s.tid));
+  b.classList.toggle('placed',placed);b.title=s.name+(placed?' · Already in this row':'');b.setAttribute('aria-label',b.title);addIcon(b,s.icon);return b;
  }));
 }
 function drawGearSets(){
@@ -807,9 +831,8 @@ function drawPotionsPanel(potions){
   button.classList.toggle('empty',!item?.tid||!item.count);
   const kind=document.createElement('span');kind.className='potionKind';kind.textContent=slot?'MP':'HP';
   const image=document.createElement('img');image.alt='';image.hidden=!item?.icon;if(item?.icon)image.src=item.icon;
-  const name=document.createElement('span');name.className='potionName';name.textContent=item?.name||'Unavailable';
-  const count=document.createElement('span');count.className='potionCount';count.textContent=item?.tid?'× '+(item.count||0):'';
-  button.replaceChildren(kind,image,name,count);button.setAttribute('aria-label',(slot?'Mana':'Health')+' potion: '+(item?.name||'Unavailable')+(item?.tid?', '+(item.count||0)+' remaining':''));
+  const count=document.createElement('span');count.className='potionCount';count.textContent=item?.tid?'× '+(item.count||0):'—';
+  button.replaceChildren(kind,image,count);button.setAttribute('aria-label',(slot?'Mana':'Health')+' potion: '+(item?.name||'Unavailable')+(item?.tid?', '+(item.count||0)+' remaining':''));
   button.onclick=()=>{potionPickerSlot=slot;cursor=-1;$('potionPicker').hidden=false;drawPotionOptions()};
  }
  if(potionPickerSlot!=null){if(!d.online||!potions?.[potionPickerSlot])closePotionPicker();else drawPotionOptions()}
@@ -829,31 +852,14 @@ function drawPotionOptions(){
 }
 let rendered={};
 function changed(id,value,fn){const key=JSON.stringify(value);if(rendered[id]===key)return;rendered[id]=key;fn(value)}
-let effectsSession=null, effectsAttempt=0;
-$('effectsSetting').addEventListener('change',e=>{
- const value=e.target.value;
- send('effects',value,()=>{savePanelPreference('effects',value);effectsSession=d.chatActivity?.session||null});
-});
 window.renderGame=state=>{
  d=state;
  observeChat(d.chatActivity);
- if(d.online&&panelPreferences.effects==null&&['0','1','2'].includes(String(d.effects)))savePanelPreference('effects',String(d.effects));
- const effectsValue=String(panelPreferences.effects??'');
- const session=d.chatActivity?.session;
- if(d.online&&session&&session!==effectsSession&&['0','1','2'].includes(effectsValue)&&d.effects!=null){
-  if(String(d.effects)===effectsValue)effectsSession=session;
-  else if(!pending&&Date.now()-effectsAttempt>2500){
-   effectsAttempt=Date.now();
-   send('effects',effectsValue,()=>{effectsSession=session});
-  }
- }
  const badge=$('macroBadge'), macroActive=d.online&&d.macro===true;
  const activeRow=macroActive&&Number.isInteger(Number(d.activeRow))&&d.activeRow!==''&&d.activeRow!=null&&Number(d.activeRow)>=0?Number(d.activeRow)+1:null;
  badge.textContent=!d.online||d.macro==null?'—':macroActive?'ON'+(activeRow?' · '+activeRow:''):'OFF';
  badge.classList.toggle('on',macroActive);badge.classList.toggle('unknown',!d.online||d.macro==null);
  document.querySelector('[data-tab="macros"]').setAttribute('aria-label',!d.online||d.macro==null?'Macros, status unavailable':macroActive?'Macros, attack active'+(activeRow?', row '+activeRow:''):'Macros, attack off');
- if(document.activeElement!==$('effectsSetting')&&d.effects!=null)$('effectsSetting').value=d.effects;
- $('effectsSetting').disabled=!d.online;
  document.body.classList.remove('native-pad');
  document.querySelectorAll('.nativeHint').forEach(el=>el.hidden=true);
  drawController();
@@ -873,7 +879,7 @@ window.renderGame=state=>{
  lastSelect=d.online?d.select:null;
  if(tab===1&&d.online&&!mapRequested&&!d.map&&!pending){mapRequested=true;send('mapView','')}
  changed('potions',[d.online,d.potions],()=>drawPotionsPanel(d.potions));
- changed('skills',[d.slots,d.nativePadMap,d.nativePad],()=>drawSkills(d.slots||[]));
+ changed('skills',[d.slots,d.nativePadMap,d.nativePad,d.heroes],()=>drawSkills(d.slots||[]));
  changed('map',d.map||'',m=>{$('mapImage').hidden=!m;$('mapHint').hidden=!!m;if(m)$('mapImage').src=m});
  changed('filters',d.filters||[],f=>$('filters').replaceChildren(...f.filter(x=>x.name).map(x=>btn(x.name,()=>send('filter',x.name),x.on))));
  changed('chat',d.chat||[],m=>{

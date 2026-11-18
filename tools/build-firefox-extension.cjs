@@ -11,8 +11,9 @@ const page = `(() => {
 ${source.slice(start,end)}
 let active = false;
 window.addEventListener('message', event => {
-  if (event.source !== window || event.origin !== location.origin ||
-      event.data?.type !== 'kaldora-thor-request') return;
+  if (event.source !== window || event.origin !== location.origin) return;
+  if (event.data?.type === 'kaldora-thor-init') { active = true; return; }
+  if (event.data?.type !== 'kaldora-thor-request') return;
   const { id, command } = event.data;
   if (!active) {
     if (command != null || !/^#thor=[a-f0-9]{64}$/.test(location.hash)) return;

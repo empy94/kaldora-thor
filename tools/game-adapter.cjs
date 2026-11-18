@@ -41,13 +41,15 @@ function inputs() {
   };
   const menuSelectors=['#npc-menu','#menu-win','#inventory','#shop','#petbag','#bank','#skills','#macro-win','#missions','#character'];
   const visible=x=>x&&x.getClientRects().length&&getComputedStyle(x).visibility!=='hidden';
-  let highlighted, highlightOwner, dragSource, dragItem, dragMoved=false, anchor, dragStartedAt=0, lastItemTap=null;
+  let highlighted, highlightOwner, dragSource, dragItem, dragMoved=false, anchor, dragStartedAt=0, lastItemTap=null, cardReturn=null;
   const panels=()=>[...document.querySelectorAll('.panel.show,[role="dialog"].show')]
     .filter(x=>visible(x)&&!x.closest('[hidden]'));
   const panel=()=>{
     const dialogs=[...document.querySelectorAll('dialog[open],[role="dialog"][aria-modal="true"]')]
       .filter(x=>visible(x)&&!x.closest('[hidden]'));
     if(dialogs.length)return dialogs[dialogs.length-1];
+    const characterPicker=document.querySelector('#select.show #pick-view:not([hidden]) #pick');
+    if(visible(characterPicker))return characterPicker;
     const available=panels();
     const selected=available.find(x=>highlighted&&x.contains(highlighted)) ||
       (highlighted&&!highlighted.isConnected&&available.includes(highlightOwner)?highlightOwner:null);
@@ -62,14 +64,26 @@ function inputs() {
   const ownedItem=id=>(typeof inv!=='undefined'&&inv?.items?.find(x=>String(x.id)===String(id)))||(typeof bankItems!=='undefined'&&bankItems?.find(x=>String(x.id)===String(id)))||null;
   const lockedSlot=node=>!!(node?.dataset?.item&&ownedItem(node.dataset.item)?.locked);
   const anchors=new WeakMap();
+  function restoreAnchor(owner,saved){
+    if(!saved)return null;
+    const byId=saved.id&&document.getElementById(saved.id);
+    if(byId&&owner.contains(byId))return byId;
+    let node=owner;
+    for(const index of saved.path||[])node=node?.children?.[index];
+    if(node&&saved.path?.length)return node;
+    const parent=saved.parent&&document.getElementById(saved.parent);
+    return parent?.children[saved.index]||null;
+  }
   function highlight(next){
     if(highlighted===next)return;
     highlighted?.classList.remove('thor-nav');
     highlighted=next;
-    highlightOwner=next?.closest('.panel.show,[role="dialog"].show,dialog[open],[role="dialog"][aria-modal="true"]')||null;
+    highlightOwner=next?.closest('#pick,.panel.show,[role="dialog"].show,dialog[open],[role="dialog"][aria-modal="true"]')||null;
     if(next){
       const parent=next.parentElement;
-      anchor=parent?.id?{parent:parent.id,index:[...parent.children].indexOf(next),id:next.id,item:next.dataset.item||''}:null;
+      const path=[];let node=next;
+      while(node&&node!==highlightOwner&&node.parentElement){path.unshift([...node.parentElement.children].indexOf(node));node=node.parentElement}
+      anchor={parent:parent?.id,index:parent?[...parent.children].indexOf(next):-1,id:next.id,item:next.dataset.item||'',path:node===highlightOwner?path:[]};
       const owner=panel();if(owner&&anchor)anchors.set(owner,anchor);
 next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'nearest'});}
   }
@@ -102,8 +116,11 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     }
     if(!current)return false;
     const list=buttons(current);
+    const card=document.querySelector('#inv-card:not([hidden])');
+    const cardHere=card&&visible(card)&&current.contains(card);
     if(command==='back'){
       if(dragSource){dragSource.classList.remove('thor-drag');dragSource=null;dragItem=null;dragMoved=false;return true}
+      if(cardHere){card.hidden=true;const previous=cardReturn;cardReturn=null;if(previous?.isConnected&&visible(previous))highlight(previous);else highlight(undefined);return true}
       const close=current.querySelector('h3 .close,.close,[data-close="'+current.id+'"],#ask-no,[data-action="cancel"],button[value="cancel"]');
       if(close&&visible(close))close.click();
       else if(current.id==='menu-win')document.getElementById('menu-btn')?.click();
@@ -113,7 +130,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     if(!list.length)return false;
     if(!list.includes(highlighted)){
       const saved=anchors.get(current);
-      const restored=saved&&(saved.id?document.getElementById(saved.id):document.getElementById(saved.parent)?.children[saved.index]);
+      const restored=restoreAnchor(current,saved);
       highlight(list.includes(restored)?restored:list[0]);
       if(command!=='accept'&&command!=='downAccept')return true;
     }
@@ -153,12 +170,26 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
         }else{
           lastItemTap=isItem?{id:item,grid:source.parentElement,at:now}:null;
           source.click();
+          const opened=document.querySelector('#inv-card:not([hidden])');
+          if(opened&&visible(opened)&&current.contains(opened)){
+            const first=buttons(opened)[0];
+            if(first){cardReturn=source;highlight(first)}
+          }
         }
       }
       dragMoved=false;return true;
     }
-    if(command==='accept'){highlighted.click();highlight(undefined);return true}
+    if(command==='accept'){
+      const selected=highlighted;
+      selected.click();
+      if(selected.isConnected&&visible(selected))highlight(selected);
+      return true;
+    }
     const horizontal=command==='left'||command==='right', sign=command==='left'||command==='up'?-1:1;
+    if(horizontal&&cardHere&&card.contains(highlighted)){
+      const actions=buttons(card), next=actions[actions.indexOf(highlighted)+sign];
+      if(next){highlight(next);return true}
+    }
     if(!horizontal&&highlighted.matches('#shop-list .row')){
       const rows=[...document.querySelectorAll('#shop-list .row')].filter(visible);
       const next=rows[rows.indexOf(highlighted)+sign];
@@ -233,7 +264,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   },true);
   const blocked=new Set([...watched,4]);
   const physicalKeys={0:'A4',1:'A5',2:'4',3:'5',4:'L1',5:'6',6:'A3',7:'A6',8:'SELECT',9:'START',10:'L3',11:'R3',12:'UP',13:'DOWN',14:'LEFT',15:'RIGHT'};
-  function active(){return window.__thor===state&&Date.now()<state.until&&document.hasFocus()&&!!document.querySelector('#hud.show')}
+  function active(){return window.__thor===state&&Date.now()<state.until&&document.hasFocus()&&!!document.querySelector('#hud.show,#select.show #pick-view:not([hidden])')}
   if(rawPads){
     navigator.getGamepads=()=>{
       const pads=rawPads();
@@ -254,7 +285,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       if(!active()){previous.clear();repeatAt.clear();state.pressed=[];return}
       const menu=panel();
       if(menu&&!buttons(menu).includes(highlighted)){
-        const list=buttons(menu), saved=anchors.get(menu), restored=saved&&(saved.id?document.getElementById(saved.id):document.getElementById(saved.parent)?.children[saved.index]);
+        const list=buttons(menu), saved=anchors.get(menu), restored=restoreAnchor(menu,saved);
         highlight(list.includes(restored)?restored:list[0]);
       }
       if(!menu&&highlighted)highlight(undefined);
@@ -420,7 +451,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
 }
 function view(install) {
   const q=s=>document.querySelector(s), txt=s=>q(s)?.textContent.trim().slice(0,400)||'';
-  if(!q('#hud.show'))return {online:false};
+  if(!q('#hud.show')){if(q('#select.show #pick-view:not([hidden])'))install();return {online:false};}
   install();
   let map='';
   const c=q('#map-canvas');
@@ -438,7 +469,7 @@ function view(install) {
     };
   }
   const npc=q('#npc-menu.show')?{name:txt('#npc-name'),choices:[...q('#npc-functions').querySelectorAll('button')].map(b=>({label:b.textContent.trim(),disabled:b.disabled}))}:null;
-  let catalog=[], realRows=[];
+  let catalog=[], realRows=[], heroes=null;
   const skillNames=new Map(), skillGroups=new Map();
   if(typeof skillList!=='undefined'&&typeof bar!=='undefined'&&bar&&typeof BAR_COLS!=='undefined') {
     for(const skill of skillList){skillNames.set(String(skill.id),skill.name);skillGroups.set(String(skill.id),skill.passive?'Passive':(SKILL_TABS.find(([id])=>id===skillGroup(skill))?.[1]||'Other'));}
@@ -457,6 +488,13 @@ function view(install) {
     realRows=[0,1,2,3].map(row=>BAR_COLS.map((col)=>{
       const tid=bar.slots[10*row+col]||0;
       return {tid:String(tid),item:tid<0};
+    }));
+  }
+  if(typeof heroData!=='undefined'&&heroData&&Array.isArray(heroData.chars)&&typeof heroSkill==='function'&&typeof icon==='function'){
+    const excluded=new Set((heroData.off||[]).map(String));
+    heroes=heroData.chars.flatMap(character=>(character.buffs||[]).map(buff=>{
+      const skill=heroSkill(buff),src=icon('skill',buff.tid)?.src||'';
+      return {tid:String(buff.tid),name:String(skill.name||''),hero:String(character.name||''),level:Number(buff.lv)||0,enabled:!excluded.has(String(buff.tid)),icon:src.startsWith(location.origin+'/')?src:'',description:Array.isArray(skill.tip)?skill.tip.map(String):[]};
     }));
   }
   let itemDetails=null;
@@ -529,7 +567,7 @@ function view(install) {
     nativePadMap:typeof pad!=='undefined'&&Array.isArray(pad?.map)?pad.map.map(value=>({value,label:(typeof PAD_ACTIONS!=='undefined'?PAD_ACTIONS.flatMap(group=>group[1]).find(option=>option[0]===value)?.[1]:null)||value||'Nothing'})):[],
     buffRows:typeof bar!=='undefined'&&bar?[bar.bRow??1,bar.bRow2??-1]:[],attackRow:typeof bar!=='undefined'&&bar?bar.mRow??0:null,
     fullscreen:!!document.fullscreenElement,nativeMenu:window.__thor.menu(),bindings:window.__thor.bind,lastMacro:window.__thor.lastMacro,nativeUpdate:typeof macroSpan==='function'&&typeof padTapValue==='function',macroChains:window.__thor.chainInfo?.(),
-    activeRow:typeof macroRow==='number'?String(macroRow):'',inventory,npc,catalog,realRows,select:window.__thor.select||0,focused:document.hasFocus(),level:txt('#level'),hp:txt('#hp-text'),mp:txt('#mp-text'),xp:txt('#exp-text'),
+    activeRow:typeof macroRow==='number'?String(macroRow):'',inventory,npc,catalog,realRows,heroes,select:window.__thor.select||0,focused:document.hasFocus(),level:txt('#level'),hp:txt('#hp-text'),mp:txt('#mp-text'),xp:txt('#exp-text'),
     bars:['hp','mp','exp'].map(k=>parseFloat(q('#'+k+'-fill')?.style.width)||0),
     macro:q('#macro-on')?!q('#macro-on').hidden:null,map,
     macroRows:[...document.querySelectorAll('#t-rows [data-row]')].map(b=>{
@@ -549,6 +587,10 @@ function view(install) {
 function action(a) {
   const q=s=>document.querySelector(s);
   if(!q('#hud.show'))return false;
+  if(a.type==='heroBuff'){
+    if(typeof heroUse!=='function'||typeof heroUsed!=='function'||!heroUsed().length||typeof heroReady!=='number'||performance.now()<heroReady)return false;
+    heroUse();return true;
+  }
   if(a.type==='nativePad'){
     if(typeof pad==='undefined'||!Array.isArray(pad.map)||window.__thor?.menu())return false;
     const mapping=pad.map[a.value]||'';
@@ -725,6 +767,7 @@ function action(a) {
 }
 function valid(a) {
   if(!a||typeof a!=='object')return false;
+  if(a.type==='heroBuff')return true;
   const digits=v=>typeof v==='string'&&/^\d{1,9}$/.test(v);
   const row=v=>typeof v==='string'&&/^[0-3]$/.test(v);
   if(a.type==='nativePad')return Number.isInteger(a.value)&&a.value>=0&&a.value<=15;

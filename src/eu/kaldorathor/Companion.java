@@ -146,6 +146,21 @@ public final class Companion extends Activity {
         super.onCreate(state);
         getWindow().getDecorView().setSystemUiVisibility(5894 | 1024 | 512);
         panel = new WebView(this);
+        android.widget.FrameLayout root = new android.widget.FrameLayout(this);
+        root.addView(panel, new android.widget.FrameLayout.LayoutParams(-1, -1));
+        getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            root.setOnApplyWindowInsetsListener((view, insets) -> {
+                int ime = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom;
+                android.widget.FrameLayout.LayoutParams params = (android.widget.FrameLayout.LayoutParams) panel.getLayoutParams();
+                if (params.bottomMargin != ime) {
+                    params.bottomMargin = ime;
+                    panel.setLayoutParams(params);
+                    panel.evaluateJavascript("document.body?.classList.toggle('keyboard-open'," + (ime > 0) + ")", null);
+                }
+                return view.onApplyWindowInsets(insets);
+            });
+        }
         panel.setBackgroundColor(0xff0c141e);
         panel.getSettings().setJavaScriptEnabled(true);
         panel.getSettings().setDomStorageEnabled(true);
@@ -158,7 +173,7 @@ public final class Companion extends Activity {
                 return true;
             }
         });
-        setContentView(panel);
+        setContentView(root);
         panel.loadUrl("file:///android_asset/panel.html");
         bridgeToken = ConnectionKey.get(this);
         updates.scheduleWithFixedDelay(this::readGame, 600, 700, java.util.concurrent.TimeUnit.MILLISECONDS);
