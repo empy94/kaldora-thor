@@ -1,11 +1,11 @@
 function inputs() {
-  if(window.__thor?.version===45){
+  if(window.__thor?.version===46){
     if(Date.now()>=window.__thor.until){window.__thor.pk=false;window.__thor.clearCashMarks?.()}
     window.__thor.until=Date.now()+4000;return;
   }
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:45,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
+  const state=window.__thor={version:46,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
   // Kaldora uses part 9 for both shields and off-hand weapons. Its own
   // drawDoll / stoneRisk code identifies a weapon by positive max damage.
   state.socketGearType=item=>{
@@ -30,7 +30,7 @@ function inputs() {
     if(!skills.length&&!isBuff)return false;
     // A manual attack-macro command takes precedence over an automatic restart.
     if(!isBuff&&retarget){
-      const alreadyStopping=retarget.stopping&&retarget.row===row;
+      const alreadyStopping=retarget.row===row;
       retarget=null;
       if(alreadyStopping)return true;
     }
@@ -533,38 +533,32 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   function followRetarget(pending){
     if(retarget!==pending)return;
     if(window.__thor!==state||Date.now()>=pending.until||Date.now()>=state.until||
-       !document.querySelector('#hud.show')||document.querySelector('#respawn.show')){
+       !document.querySelector('#hud.show')||document.querySelector('#respawn.show')||
+       (macroRow>=0&&macroRow!==pending.row)){
       retarget=null;return;
     }
-    const target=liveMonster(), indicator=macroIndicator();
+    const target=liveMonster();
     pending.frames++;
-    if(pending.stopping){
-      if(macroRow>=0&&macroRow!==pending.row){retarget=null;return}
-      if(indicator?.hidden&&macroRow===-1&&pending.frames>=2){
-        retarget=null;
-        if(target!==null&&macroIds(pending.row).length)toggleMacro(pending.row);
-        return;
-      }
-    }else{
-      if(activeAttackRow()!==pending.row){retarget=null;return}
-      if(target!==null&&target!==pending.previous&&pending.frames>=2){
-        pending.stopping=true;
-        pending.until=Date.now()+1600;
-        toggleMacro(pending.row);
-      }
+    // A newly drawn target is ready immediately. If Tab kept the same target,
+    // give the viewer one more frame to publish its selection before resuming.
+    if(macroIndicator()?.hidden&&macroRow===-1&&target!==null&&
+       (target!==pending.previous||pending.frames>=2)){
+      retarget=null;
+      if(macroIds(pending.row).length)toggleMacro(pending.row);
+      return;
     }
     requestAnimationFrame(()=>followRetarget(pending));
   }
   function nextMonster(){
-    const row=activeAttackRow();
-    const before=liveMonster();
+    const previous=liveMonster(), row=activeAttackRow();
     if(retarget){
+      retarget.previous=previous;
       retarget.frames=0;
-      // Keep the original target until the pending switch has been observed.
-      if(!retarget.stopping)retarget.until=Date.now()+700;
     }else if(row!==null&&typeof requestAnimationFrame==='function'){
-      retarget={row,previous:before,frames:0,stopping:false,until:Date.now()+700};
-      const pending=retarget;
+      const pending=retarget={row,previous,frames:0,until:Date.now()+1600};
+      // Clear the native macro before Tab changes the target. Otherwise the
+      // viewer can send the new target while the previous attack is still active.
+      Module.ccall('viewer_macro',null,['string'],['']);
       requestAnimationFrame(()=>followRetarget(pending));
     }
     Module.ccall('viewer_tab_target',null,[],[]);
