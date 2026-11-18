@@ -1,11 +1,11 @@
 function inputs() {
-  if(window.__thor?.version===42){
-    if(Date.now()>=window.__thor.until)window.__thor.pk=false;
+  if(window.__thor?.version===43){
+    if(Date.now()>=window.__thor.until){window.__thor.pk=false;window.__thor.clearCashMarks?.()}
     window.__thor.until=Date.now()+4000;return;
   }
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:42,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
+  const state=window.__thor={version:43,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
   // Kaldora uses part 9 for both shields and off-hand weapons. Its own
   // drawDoll / stoneRisk code identifies a weapon by positive max damage.
   state.socketGearType=item=>{
@@ -110,6 +110,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   const style=document.createElement('style');
   style.textContent='.thor-nav{outline:3px solid #9bdafe!important;outline-offset:2px;box-shadow:0 0 10px #5dbcf2!important}.thor-drag{outline:3px solid #e9bf70!important;outline-offset:2px}';
   style.textContent+='#shop-list .row.thor-nav,#portal-list button.thor-nav{outline:none!important;box-shadow:inset 0 0 0 3px #9bdafe!important}';
+  style.textContent+='#cash-grid .thor-cash-mark:not(.thor-nav){outline:2px solid #e9bf70;outline-offset:-2px}#cash-grid .thor-cash-mark::after{content:"✓";position:absolute;top:2px;left:2px;color:#ffe3a7;background:#251d11;border-radius:3px;padding:0 3px;pointer-events:none}#cash-trash[data-thor-marking]{width:auto;min-width:82px;border-color:#e08778}#cash-trash[data-thor-marking]::after{content:attr(data-thor-marking);padding-right:3px}';
   style.textContent+='html.touch .set-row:has(#set-effects),html.touch .set-row:has(#set-bufffx){display:flex!important}';
   document.head.appendChild(style);
   try {
@@ -125,11 +126,92 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     }
   }catch{}
 
+  const cashSlot='#cash-grid .slot[data-item]';
+  const bagSlot='#inv-grid .slot[data-item]';
+  let cashMarks=null,cashConfirming=false;
+  const cashItem=id=>{
+    const item=ownedItem(id);
+    return item?.cash&&!item.locked&&!item.inUse&&!item.equipped&&!item.trade&&!item.shop&&!item.bank?item:null;
+  };
+  const canMarkCash=owner=>owner?.id==='cashbag'&&!activeCard(owner)&&typeof ask==='function'&&
+    typeof Module!=='undefined'&&typeof Module.ccall==='function'&&typeof inv!=='undefined'&&Array.isArray(inv.items);
+  function refreshCashMarks(owner){
+    if(!owner?.classList.contains('show'))cashMarks=null;
+    if(cashMarks)for(const id of cashMarks)if(!cashItem(id))cashMarks.delete(id);
+    owner?.querySelector('#cash-trash')?.toggleAttribute('data-thor-marking',!!cashMarks);
+    if(cashMarks)owner.querySelector('#cash-trash')?.setAttribute('data-thor-marking','Destroy '+cashMarks.size);
+    owner?.querySelectorAll(cashSlot).forEach(slot=>slot.classList.toggle('thor-cash-mark',!!cashMarks?.has(slot.dataset.item)));
+  }
+  function markCashSlot(owner,slot){
+    const id=slot?.dataset.item;
+    if(!canMarkCash(owner)||cashConfirming||!cashItem(id))return false;
+    cashMarks??=new Set();
+    if(!cashMarks.delete(id))cashMarks.add(id);
+    lastItemTap=null;
+    refreshCashMarks(owner);
+    return true;
+  }
+  async function destroyMarkedCash(owner){
+    const selected=[...(cashMarks||[])].map(cashItem).filter(Boolean)
+      .map(({id,tid,name,count})=>({id:String(id),tid,name,count}));
+    if(cashConfirming||!selected.length)return;
+    cashConfirming=true;
+    try{
+      const lines=selected.slice(0,8).map(({name,count})=>name+(count>1?' × '+count:''));
+      if(selected.length>8)lines.push('and '+(selected.length-8)+' more');
+      const confirmed=ask('Destroy '+selected.length+' item'+(selected.length===1?'':'s')+'?\n'+lines.join('\n'),'',false,{ok:'Destroy',danger:true});
+      const cancel=document.getElementById('ask-no');
+      if(visible(cancel)){highlight(cancel);cancel.focus()}
+      if(!await confirmed||!owner.classList.contains('show')||!cashMarks)return;
+      const checked=selected.filter(({id,tid,count})=>{
+        const item=cashItem(id);
+        return cashMarks.has(id)&&item?.tid===tid&&item.count===count;
+      });
+      cashMarks=null;
+      refreshCashMarks(owner);
+      checked.forEach(({id,tid,count},index)=>setTimeout(()=>{
+        const item=cashItem(id);
+        if(window.__thor===state&&document.querySelector('#hud.show')&&item?.tid===tid&&item.count===count)
+          Module.ccall('viewer_destroy_item',null,['number'],[Number(id)]);
+      },100*Math.floor(index/10)));
+    }finally{cashConfirming=false}
+  }
+  const cashOwner=document.getElementById('cashbag');
+  state.clearCashMarks=()=>{if(cashMarks){cashMarks=null;refreshCashMarks(cashOwner)}};
+  if(cashOwner&&typeof MutationObserver==='function'){
+    const observer=new MutationObserver(()=>refreshCashMarks(cashOwner));
+    observer.observe(cashOwner,{attributes:true,attributeFilter:['class']});
+    const grid=cashOwner.querySelector('#cash-grid');
+    if(grid)observer.observe(grid,{childList:true});
+  }
+  window.addEventListener('click',event=>{
+    if(window.__thor!==state||Date.now()>=state.until||!canMarkCash(panel()))return;
+    const trash=event.target?.closest?.('#cash-trash');
+    const slot=event.target?.closest?.(cashSlot);
+    if(trash){
+      if(!cashMarks&&typeof picked==='function'&&picked())return;
+      event.preventDefault();event.stopImmediatePropagation();
+      if(!cashMarks){cashMarks=new Set();refreshCashMarks(cashOwner)}
+      else if(cashMarks.size)void destroyMarkedCash(cashOwner);
+      else{cashMarks=null;refreshCashMarks(cashOwner)}
+    }else if(cashMarks&&slot){
+      event.preventDefault();event.stopImmediatePropagation();markCashSlot(cashOwner,slot);
+    }
+  },true);
+  for(const type of ['dblclick','dragstart','drop'])window.addEventListener(type,event=>{
+    if(window.__thor===state&&cashMarks&&event.target?.closest?.('#cashbag')){
+      event.preventDefault();event.stopImmediatePropagation();
+    }
+  },true);
+
   const canMarkBag=owner=>owner?.id==='inventory'&&!activeCard(owner)&&
     typeof markMode==='function'&&typeof bagMarks!=='undefined'&&typeof inTab==='function';
-  const markingBag=owner=>canMarkBag(owner)&&bagMarks!==null;
+  const markingBag=owner=>canMarkCash(owner)?cashMarks!==null:canMarkBag(owner)&&bagMarks!==null;
+  const markableSlot=owner=>owner.id==='cashbag'?cashSlot:bagSlot;
   function markBagSlot(owner){
-    if(!canMarkBag(owner)||dragSource||!highlighted?.matches('#inv-grid .slot[data-item]'))return false;
+    if(dragSource||!highlighted?.matches(markableSlot(owner)))return false;
+    if(canMarkCash(owner))return markCashSlot(owner,highlighted);
+    if(!canMarkBag(owner))return false;
     const id=highlighted.dataset.item,item=ownedItem(id);
     if(!item||item.locked||!inTab(item,item.layer))return false;
     lastItemTap=null;
@@ -143,6 +225,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   }
   state.menuContext=()=>{
     const current=panel();
+    if(canMarkCash(current))return {kind:'bag',marked:cashMarks?.size??null};
     if(canMarkBag(current))return {kind:'bag',marked:markingBag(current)?bagMarks.size:null};
     if(activeCard(current))return {kind:'card'};
     if(current?.matches('dialog[open],[role="dialog"][aria-modal="true"]'))return {kind:'confirm'};
@@ -164,7 +247,9 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     const card=activeCard(current), cardHere=!!card;
     if(command==='back'){
       if(dragSource){dragSource.classList.remove('thor-drag');dragSource=null;dragItem=null;dragMoved=false;return true}
-      if(markingBag(current)){markMode(false);highlight(restoreAnchor(current,buttons(current)));return true}
+      if(markingBag(current)){
+        if(canMarkCash(current)){cashMarks=null;refreshCashMarks(current)}else markMode(false);
+        highlight(restoreAnchor(current,buttons(current)));return true}
       if(cardHere){card.hidden=true;const previous=cardReturn;cardReturn=null;highlight(previous?.isConnected&&visible(previous)?previous:restoreAnchor(current,buttons(current)));return true}
       const close=current.querySelector('h3 .close,.close,[data-close="'+current.id+'"],#ask-no,[data-action="cancel"],button[value="cancel"]');
       if(close&&visible(close))close.click();
@@ -178,7 +263,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       if(command!=='accept'&&command!=='downAccept')return true;
     }
     if(command==='downAccept'){
-      if(markingBag(current)&&highlighted.matches('#inv-grid .slot'))return markBagSlot(current);
+      if(markingBag(current)&&highlighted.matches(markableSlot(current)))return markBagSlot(current);
       if(highlighted.matches('select')){
         highlighted.selectedIndex=(highlighted.selectedIndex+1)%highlighted.options.length;
         highlighted.dispatchEvent(new Event('change',{bubbles:true}));return true;
@@ -224,7 +309,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       dragMoved=false;return true;
     }
     if(command==='accept'){
-      if(markingBag(current)&&highlighted.matches('#inv-grid .slot'))return markBagSlot(current);
+      if(markingBag(current)&&highlighted.matches(markableSlot(current)))return markBagSlot(current);
       const selected=highlighted;
       selected.click();
       if(selected.isConnected&&visible(selected))highlight(selected);
@@ -536,7 +621,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
 function view(install) {
   const q=s=>document.querySelector(s), txt=s=>q(s)?.textContent.trim().slice(0,400)||'';
   if(!q('#hud.show')){
-    if(window.__thor)window.__thor.pk=false;
+    if(window.__thor){window.__thor.pk=false;window.__thor.clearCashMarks?.()}
     const characterSelect=!!q('#select.show #pick-view:not([hidden])');
     if(characterSelect)install();
     return {online:false,characterSelect,nativeMenu:characterSelect?'pick':null};
