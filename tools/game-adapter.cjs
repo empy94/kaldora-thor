@@ -106,7 +106,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   }
   const style=document.createElement('style');
   style.textContent='.thor-nav{outline:3px solid #9bdafe!important;outline-offset:2px;box-shadow:0 0 10px #5dbcf2!important}.thor-drag{outline:3px solid #e9bf70!important;outline-offset:2px}';
-  style.textContent+='#shop-list .row.thor-nav{outline:none!important;box-shadow:inset 0 0 0 3px #9bdafe!important}';
+  style.textContent+='#shop-list .row.thor-nav,#portal-list button.thor-nav{outline:none!important;box-shadow:inset 0 0 0 3px #9bdafe!important}';
   style.textContent+='html.touch .set-row:has(#set-effects),html.touch .set-row:has(#set-bufffx){display:flex!important}';
   document.head.appendChild(style);
   try {
@@ -230,7 +230,15 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     return true;
   }
   state.navigate=navigate;
-  state.menu=()=>panel()?.id||"";
+  state.menu=()=>{
+    const current=panel();
+    // Keep the portal selection visible when the lower screen has focus.
+    if(current?.id==='portal'){
+      const list=buttons(current);
+      if(!list.includes(highlighted))highlight(restoreAnchor(current,list));
+    }
+    return current?.id||"";
+  };
   state.selectedShopItem=()=>{
     if(!highlighted?.isConnected||!highlighted.matches('#shop-list .row')||
        typeof shopItems!=='function'||typeof shopTab==='undefined')return null;
