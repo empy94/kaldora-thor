@@ -204,7 +204,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     const [x,y]=center(highlighted);
     let best=null,score=Infinity;
     const modal=current.matches('dialog[open],[role="dialog"][aria-modal="true"]');
-    const candidates=modal?list:[...new Set(panels().flatMap(buttons))];
+    const candidates=(modal||current.id==='pick')?list:[...new Set(panels().flatMap(buttons))];
     for(const candidate of candidates){
       if(candidate===highlighted)continue;
       const [cx,cy]=center(candidate), along=(horizontal?cx-x:cy-y)*sign, across=Math.abs(horizontal?cy-y:cx-x);

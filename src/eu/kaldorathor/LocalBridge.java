@@ -46,6 +46,10 @@ final class LocalBridge {
         if (instance == null) instance = new LocalBridge(token);
     }
 
+    static synchronized boolean hasLiveGame() {
+        return instance != null && instance.live();
+    }
+
     private LocalBridge(String token) throws IOException {
         authorization = ("Bearer " + token).getBytes(StandardCharsets.US_ASCII);
         server = new ServerSocket(PORT, 12, InetAddress.getByName("127.0.0.1"));

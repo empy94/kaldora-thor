@@ -44,8 +44,11 @@ public final class Launcher extends Activity {
             break;
         }
         try {
-            Intent browser = new Intent(Intent.ACTION_VIEW, Uri.parse(GAME + "#thor=" + token)).setPackage(FIREFOX);
-            browser.putExtra(Browser.EXTRA_APPLICATION_ID, getPackageName());
+            Intent browser = LocalBridge.hasLiveGame() ? getPackageManager().getLaunchIntentForPackage(FIREFOX) : null;
+            if (browser == null) {
+                browser = new Intent(Intent.ACTION_VIEW, Uri.parse(GAME + "#thor=" + token)).setPackage(FIREFOX);
+                browser.putExtra(Browser.EXTRA_APPLICATION_ID, getPackageName());
+            }
             startActivity(browser, ActivityOptions.makeBasic().setLaunchDisplayId(Display.DEFAULT_DISPLAY).toBundle());
         } catch (RuntimeException unavailable) {
             Toast.makeText(this, "Firefox with the Kaldora Thor extension is required", Toast.LENGTH_LONG).show();
