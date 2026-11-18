@@ -451,7 +451,11 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
 }
 function view(install) {
   const q=s=>document.querySelector(s), txt=s=>q(s)?.textContent.trim().slice(0,400)||'';
-  if(!q('#hud.show')){if(q('#select.show #pick-view:not([hidden])'))install();return {online:false};}
+  if(!q('#hud.show')){
+    const characterSelect=!!q('#select.show #pick-view:not([hidden])');
+    if(characterSelect)install();
+    return {online:false,characterSelect,nativeMenu:characterSelect?'pick':null};
+  }
   install();
   let map='';
   const c=q('#map-canvas');
@@ -586,6 +590,7 @@ function view(install) {
 }
 function action(a) {
   const q=s=>document.querySelector(s);
+  if(a.type==='nav'&&q('#select.show #pick-view:not([hidden])'))return window.__thor?.navigate(a.value)||false;
   if(!q('#hud.show'))return false;
   if(a.type==='heroBuff'){
     if(typeof heroUse!=='function'||typeof heroUsed!=='function'||!heroUsed().length||typeof heroReady!=='number'||performance.now()<heroReady)return false;

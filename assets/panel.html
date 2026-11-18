@@ -330,7 +330,7 @@ function notice(msg){$('feedback').textContent=msg;clearTimeout(timer);timer=set
 const queuedNavigation=[];
 function send(type,value,done){
  if(pending){if(type==='nav')queuedNavigation.push([type,value,done]);else if(type!=='pad')notice('One action at a time');return}
- if(!d.online){notice('Game connection unavailable');return}
+ if(!d.online&&!(d.characterSelect&&type==='nav')){notice('Game connection unavailable');return}
  pending=true;complete=done;
  location.href='kaldorathor://action?data='+encodeURIComponent(JSON.stringify({type,value}));
 }
