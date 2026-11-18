@@ -48,6 +48,8 @@ function inputs() {
     const dialogs=[...document.querySelectorAll('dialog[open],[role="dialog"][aria-modal="true"]')]
       .filter(x=>visible(x)&&!x.closest('[hidden]'));
     if(dialogs.length)return dialogs[dialogs.length-1];
+    const portal=document.querySelector('#portal.show');
+    if(visible(portal))return portal;
     const characterPicker=document.querySelector('#select.show #pick-view:not([hidden]) #pick');
     if(visible(characterPicker))return characterPicker;
     const available=panels();
@@ -57,22 +59,36 @@ function inputs() {
       .sort((a,b)=>(parseInt(getComputedStyle(b).zIndex)||0)-(parseInt(getComputedStyle(a).zIndex)||0))[0]
       ||menuSelectors.map(s=>document.querySelector(s)).find(x=>x?.classList.contains('show')&&visible(x));
   };
+  const controlSelector='button,[role=button],select,input:not([type=hidden]),textarea,.skill-card,[draggable=true],[onclick],[tabindex]:not([tabindex="-1"]),#shop-list .row,#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot,#inv-trash,#pet-trash,#cash-trash,#mw-rows .skill,#mw-skills .skill';
   const buttons=p=>{
-    const list=[...p.querySelectorAll('button,[role=button],select,input:not([type=hidden]),textarea,.skill-card,[draggable=true],[onclick],[tabindex]:not([tabindex="-1"]),#shop-list .row,#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot,#inv-trash,#pet-trash,#cash-trash,#mw-rows .skill,#mw-skills .skill')].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
+    const list=[...p.querySelectorAll(controlSelector)].filter(x=>!x.disabled&&x.getAttribute('aria-disabled')!=='true'&&visible(x));
+    if(p.id==='portal'){
+      const priority=node=>node.matches('#portal-list button')?0:node.matches('.close,[data-close]')?2:1;
+      return list.sort((a,b)=>priority(a)-priority(b));
+    }
     return list.sort((a,b)=>Number(a.matches('.close,[data-close]'))-Number(b.matches('.close,[data-close]')));
   };
   const ownedItem=id=>(typeof inv!=='undefined'&&inv?.items?.find(x=>String(x.id)===String(id)))||(typeof bankItems!=='undefined'&&bankItems?.find(x=>String(x.id)===String(id)))||null;
   const lockedSlot=node=>!!(node?.dataset?.item&&ownedItem(node.dataset.item)?.locked);
   const anchors=new WeakMap();
-  function restoreAnchor(owner,saved){
-    if(!saved)return null;
+  const activeCard=owner=>{
+    const card=document.querySelector('#inv-card:not([hidden])');
+    return visible(card)&&owner.contains(card)?card:null;
+  };
+  function restoreAnchor(owner,list){
+    const card=activeCard(owner);
+    const saved=anchors.get(card||owner);
+    if(!saved)return (card&&list.find(node=>card.contains(node)))||list[0];
     const byId=saved.id&&document.getElementById(saved.id);
-    if(byId&&owner.contains(byId))return byId;
+    if(list.includes(byId))return byId;
+    const item=saved.item&&list.find(node=>node.dataset.item===saved.item);
+    if(item)return item;
     let node=owner;
     for(const index of saved.path||[])node=node?.children?.[index];
-    if(node&&saved.path?.length)return node;
+    if(saved.path?.length&&list.includes(node))return node;
     const parent=saved.parent&&document.getElementById(saved.parent);
-    return parent?.children[saved.index]||null;
+    const slot=parent?.children?.[saved.index];
+    return list.includes(slot)?slot:list[0];
   }
   function highlight(next){
     if(highlighted===next)return;
@@ -84,7 +100,8 @@ function inputs() {
       const path=[];let node=next;
       while(node&&node!==highlightOwner&&node.parentElement){path.unshift([...node.parentElement.children].indexOf(node));node=node.parentElement}
       anchor={parent:parent?.id,index:parent?[...parent.children].indexOf(next):-1,id:next.id,item:next.dataset.item||'',path:node===highlightOwner?path:[]};
-      const owner=panel();if(owner&&anchor)anchors.set(owner,anchor);
+      const owner=highlightOwner;
+      if(owner){const card=activeCard(owner);anchors.set(card?.contains(next)?card:owner,anchor);}
 next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'nearest'});}
   }
   const style=document.createElement('style');
@@ -116,11 +133,10 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     }
     if(!current)return false;
     const list=buttons(current);
-    const card=document.querySelector('#inv-card:not([hidden])');
-    const cardHere=card&&visible(card)&&current.contains(card);
+    const card=activeCard(current), cardHere=!!card;
     if(command==='back'){
       if(dragSource){dragSource.classList.remove('thor-drag');dragSource=null;dragItem=null;dragMoved=false;return true}
-      if(cardHere){card.hidden=true;const previous=cardReturn;cardReturn=null;if(previous?.isConnected&&visible(previous))highlight(previous);else highlight(undefined);return true}
+      if(cardHere){card.hidden=true;const previous=cardReturn;cardReturn=null;highlight(previous?.isConnected&&visible(previous)?previous:restoreAnchor(current,buttons(current)));return true}
       const close=current.querySelector('h3 .close,.close,[data-close="'+current.id+'"],#ask-no,[data-action="cancel"],button[value="cancel"]');
       if(close&&visible(close))close.click();
       else if(current.id==='menu-win')document.getElementById('menu-btn')?.click();
@@ -129,9 +145,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     }
     if(!list.length)return false;
     if(!list.includes(highlighted)){
-      const saved=anchors.get(current);
-      const restored=restoreAnchor(current,saved);
-      highlight(list.includes(restored)?restored:list[0]);
+      highlight(restoreAnchor(current,list));
       if(command!=='accept'&&command!=='downAccept')return true;
     }
     if(command==='downAccept'){
@@ -204,7 +218,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     const [x,y]=center(highlighted);
     let best=null,score=Infinity;
     const modal=current.matches('dialog[open],[role="dialog"][aria-modal="true"]');
-    const candidates=(modal||current.id==='pick')?list:[...new Set(panels().flatMap(buttons))];
+    const candidates=(modal||current.id==='pick'||current.id==='portal')?list:[...new Set(panels().flatMap(buttons))];
     for(const candidate of candidates){
       if(candidate===highlighted)continue;
       const [cx,cy]=center(candidate), along=(horizontal?cx-x:cy-y)*sign, across=Math.abs(horizontal?cy-y:cx-x);
@@ -244,8 +258,9 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   };
   window.addEventListener('pointerdown',event=>{
     if(window.__thor!==state||Date.now()>=state.until||!document.querySelector('#hud.show')||!event.isTrusted)return;
-    const current=panel(),target=event.target?.closest?.('#inv-grid .slot,#pet-grid .slot,#bank-grid .slot,#cash-grid .slot,#doll-slots .equip-slot');
-    if(current&&target&&current.contains(target))highlight(target);
+    const target=event.target?.closest?.(controlSelector);
+    const current=panel();
+    if(current&&target&&current.contains(target)&&buttons(current).includes(target))highlight(target);
   },true);
   const hasNativePad=()=>typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function';
   const hasNewNativePad=()=>typeof padTapValue==='function'&&typeof padFrame==='function'&&typeof macroSpan==='function';
@@ -285,8 +300,8 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       if(!active()){previous.clear();repeatAt.clear();state.pressed=[];return}
       const menu=panel();
       if(menu&&!buttons(menu).includes(highlighted)){
-        const list=buttons(menu), saved=anchors.get(menu), restored=restoreAnchor(menu,saved);
-        highlight(list.includes(restored)?restored:list[0]);
+        const list=buttons(menu);
+        highlight(restoreAnchor(menu,list));
       }
       if(!menu&&highlighted)highlight(undefined);
       const pad=Array.from(rawPads()).find(x=>x?.connected);

@@ -223,6 +223,15 @@ section{border-color:#2a3d45;background:linear-gradient(150deg,#17262d,#101a20)}
 .potionQuick{justify-content:center;min-height:44px;gap:8px;padding:3px 8px;border-color:#314a52;background:linear-gradient(#21343c,#17272d)}
 .potionQuick img{width:34px;height:34px;margin:0}
 .potionQuick .potionKind,.potionQuick .potionCount{font-size:13px}
+nav button{display:flex;align-items:center;justify-content:center;gap:4px;padding:3px 2px;font-size:12px}
+nav button img{flex:none;margin:0;width:16px;height:16px}
+#macroSlots{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;padding:2px 0 5px}
+#macros>.tools{margin-bottom:5px;gap:5px}
+#macros>.tools button{padding-inline:5px}
+#nativeControls:not([hidden]){display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin:0}
+#nativeControls button{min-width:0;padding:0}
+#nativeControls button:nth-last-child(2){border-color:#759dab;color:#d9f4fa}
+@media(max-width:480px){nav button,nav button[data-tab="macros"]{flex-direction:column;gap:2px}nav button img{width:15px;height:15px}nav .macroTabLabel{display:flex;align-items:center;gap:3px}}
 </style>
 
 <nav aria-label="Panels">

@@ -10,3 +10,18 @@ const document={head:{appendChild(){}},documentElement:{classList:cls('html')},h
 const navigator={getGamepads:()=>[{connected:true,mapping:'standard',axes:[0,0],buttons:Array.from({length:17},()=>({pressed:false}))}]};
 const ctx={window,document,navigator,Date,performance,requestAnimationFrame:f=>frame=f,setInterval(){},getComputedStyle:()=>({visibility:'visible',zIndex:'1'})};
 vm.createContext(ctx);vm.runInContext(code,ctx);ctx.inputs();frame();assert.equal(selected,'one');window.__thor.navigate('right');assert.equal(selected,'two','Right must select the second character');window.__thor.navigate('left');assert.equal(selected,'one','Left must select the first character');console.log('Character selection moves left and right.');
+
+// The portal can appear above an already selected window and lists its close button first.
+const portal={...pick,id:'portal'};
+let travelled=false;
+const close={...button('close',120),closest:()=>portal,matches:s=>s==='.close,[data-close]'};
+const destination={...button('destination',20),closest:()=>portal,matches:s=>s==='#portal-list button',click(){travelled=true}};
+portal.children=[close,destination];
+portal.querySelectorAll=()=>portal.children;
+const previousQuery=document.querySelector;
+document.querySelector=s=>s==='#portal.show'?portal:previousQuery(s);
+frame();
+assert.equal(selected,'destination');
+assert.equal(window.__thor.navigate('downAccept'),true);
+assert.equal(travelled,true,'A activates the portal destination');
+console.log('Portal takes focus and A activates the destination.');

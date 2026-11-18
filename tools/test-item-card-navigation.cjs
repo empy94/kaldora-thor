@@ -1,12 +1,12 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const code=fs.readFileSync(require('node:path').join(__dirname,'game-adapter.cjs'),'utf8');
 const fragment=code.slice(code.indexOf('function inputs() {'),code.indexOf('function view('));
-let nextFrame,cardOpen=false;
+let nextFrame,cardOpen=false,now=1000;
 const classes=()=>({add(){},remove(){},contains(){return false}});
 const inventory={id:'inventory',isConnected:true,classList:classes(),getClientRects:()=>[1],closest:()=>null,contains:x=>[inventory,slot,card,action].includes(x)};
 const grid={id:'inv-grid',children:[]};
 inventory.children=[grid];grid.parentElement=inventory;
-const slot={isConnected:true,dataset:{item:'1'},parentElement:grid,classList:classes(),getClientRects:()=>[1],closest:()=>inventory,matches:s=>s.includes('.slot'),click(){card.hidden=false;cardOpen=true},scrollIntoView(){}};grid.children=[slot];
+let slot={isConnected:true,dataset:{item:'1'},parentElement:grid,classList:classes(),getClientRects:()=>[1],closest:()=>inventory,matches:s=>s.includes('.slot'),click(){card.hidden=false;cardOpen=true},scrollIntoView(){}};grid.children=[slot];
 const card={hidden:true,isConnected:true,parentElement:inventory,classList:classes(),getClientRects:()=>card.hidden?[]:[1],contains:x=>x===action,querySelectorAll:()=>[action],closest:()=>inventory};
 const action={isConnected:true,parentElement:card,dataset:{},classList:classes(),getClientRects:()=>[1],closest:()=>inventory,matches:()=>false,scrollIntoView(){}};card.children=[action];
 let nextSelected=false;
@@ -17,10 +17,10 @@ inventory.contains=x=>[inventory,slot,card,action,nextAction].includes(x);
 inventory.querySelectorAll=()=>card.hidden?[slot]:[slot,action,nextAction];
 const window={addEventListener(){}};
 const document={head:{appendChild(){}},documentElement:{classList:classes()},hasFocus:()=>true,createElement:()=>({}),getElementById:()=>null,
- querySelector:s=>s==='#hud.show'?{}:s==='#inv-card:not([hidden])'&&cardOpen&&!card.hidden?card:null,
+ querySelector:s=>(s==='#hud.show'||s==='#hud.show,#select.show #pick-view:not([hidden])')?{}:s==='#inv-card:not([hidden])'&&cardOpen&&!card.hidden?card:null,
  querySelectorAll:s=>s==='.panel.show,[role="dialog"].show'?[inventory]:[]};
 const navigator={getGamepads:()=>[{connected:true,mapping:'standard',axes:[0,0,0,0],buttons:Array.from({length:17},()=>({pressed:false}))}]};
-const ctx={window,document,navigator,Date,performance,requestAnimationFrame:fn=>{nextFrame=fn},setInterval(){},getComputedStyle:()=>({visibility:'visible',zIndex:'1'})};
+const ctx={window,document,navigator,Date:{now:()=>now},performance,requestAnimationFrame:fn=>{nextFrame=fn},setInterval(){},getComputedStyle:()=>({visibility:'visible',zIndex:'1'})};
 vm.createContext(ctx);vm.runInContext(fragment,ctx);ctx.inputs();
 nextFrame();
 window.__thor.navigate('downAccept');
@@ -31,4 +31,18 @@ assert.equal(nextSelected,true,'one press selects the next item-card action');
 assert.equal(window.__thor.navigate('back'),true);
 assert.equal(card.hidden,true,'B closes the item card without closing inventory');
 assert.equal(window.__thor.menu(),'inventory','inventory stays open');
+now+=1000;
+window.__thor.navigate('downAccept');window.__thor.navigate('upAccept');
+window.__thor.navigate('right');
+nextAction.click=()=>{
+  card.hidden=true;
+  const old=slot;
+  old.isConnected=false;
+  slot={...old,isConnected:true,classList:{...classes(),add:name=>{if(name==='thor-nav')restored=true}}};
+  grid.children=[{...slot,dataset:{item:'2'},classList:classes()},slot];
+};
+let restored=false;
+inventory.querySelectorAll=()=>card.hidden?grid.children:[...grid.children,action,nextAction];
+window.__thor.navigate('downAccept');nextFrame();
+assert.equal(restored,true,'using an item returns to its slot even after the bag rebuilds');
 console.log('Item card takes focus and B returns to the inventory.');
