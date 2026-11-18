@@ -1,11 +1,11 @@
 function inputs() {
-  if(window.__thor?.version===44){
+  if(window.__thor?.version===45){
     if(Date.now()>=window.__thor.until){window.__thor.pk=false;window.__thor.clearCashMarks?.()}
     window.__thor.until=Date.now()+4000;return;
   }
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:44,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
+  const state=window.__thor={version:45,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
   // Kaldora uses part 9 for both shields and off-hand weapons. Its own
   // drawDoll / stoneRisk code identifies a weapon by positive max damage.
   state.socketGearType=item=>{
@@ -21,12 +21,19 @@ function inputs() {
     if(!part||!stone||stone.equipped||stone.shop||stone.bank||stone.trade||!(stone.count>0)||stone.conv!==2||!/^Fits:\s*/i.test(stone.fx||''))return false;
     return stone.fx.slice(5).split(',').some(value=>value.trim().toLowerCase()===part);
   };
+  let retarget=null;
   state.runMacro=(row)=>{
     row=Number(row);
     if(!Number.isInteger(row)||row<0||row>3||typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar||typeof BAR_COLS==='undefined')return false;
     const isBuff=row===(bar.bRow??1)||row===(bar.bRow2??-1);
     const skills=typeof macroIds==='function'?macroIds(row):BAR_COLS.map(col=>slotSkill(10*row+col)).filter(Boolean).map(skill=>skill.id);
     if(!skills.length&&!isBuff)return false;
+    // A manual attack-macro command takes precedence over an automatic restart.
+    if(!isBuff&&retarget){
+      const alreadyStopping=retarget.stopping&&retarget.row===row;
+      retarget=null;
+      if(alreadyStopping)return true;
+    }
     // The native implementation owns row chaining and buff behavior.
     const before=typeof macroRow==='number'?macroRow:null;
     toggleMacro(row);
@@ -514,8 +521,71 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     for(const type of ['keydown','keyup'])window.dispatchEvent(new KeyboardEvent(type,{code,key,altKey:!!altKey,bubbles:true,cancelable:true}));
     return true;
   };
+  const liveMonster=()=>typeof targetData!=='undefined'&&targetData?.monster&&!targetData.pc&&!targetData.dead?targetData.id:null;
+  const macroIndicator=()=>document.getElementById('macro-on');
+  const activeAttackRow=()=>{
+    const indicator=macroIndicator();
+    if(!indicator||indicator.hidden||typeof macroRow!=='number'||macroRow<0||
+       typeof bar==='undefined'||!bar||macroRow===(bar.bRow??1)||macroRow===(bar.bRow2??-1)||
+       typeof macroIds!=='function'||typeof toggleMacro!=='function')return null;
+    return macroRow;
+  };
+  function followRetarget(pending){
+    if(retarget!==pending)return;
+    if(window.__thor!==state||Date.now()>=pending.until||Date.now()>=state.until||
+       !document.querySelector('#hud.show')||document.querySelector('#respawn.show')){
+      retarget=null;return;
+    }
+    const target=liveMonster(), indicator=macroIndicator();
+    pending.frames++;
+    if(pending.stopping){
+      if(macroRow>=0&&macroRow!==pending.row){retarget=null;return}
+      if(indicator?.hidden&&macroRow===-1&&pending.frames>=2){
+        retarget=null;
+        if(target!==null&&macroIds(pending.row).length)toggleMacro(pending.row);
+        return;
+      }
+    }else{
+      if(activeAttackRow()!==pending.row){retarget=null;return}
+      if(target!==null&&target!==pending.previous&&pending.frames>=2){
+        pending.stopping=true;
+        pending.until=Date.now()+1600;
+        toggleMacro(pending.row);
+      }
+    }
+    requestAnimationFrame(()=>followRetarget(pending));
+  }
+  function nextMonster(){
+    const row=activeAttackRow();
+    const before=liveMonster();
+    if(retarget){
+      retarget.frames=0;
+      // Keep the original target until the pending switch has been observed.
+      if(!retarget.stopping)retarget.until=Date.now()+700;
+    }else if(row!==null&&typeof requestAnimationFrame==='function'){
+      retarget={row,previous:before,frames:0,stopping:false,until:Date.now()+700};
+      const pending=retarget;
+      requestAnimationFrame(()=>followRetarget(pending));
+    }
+    Module.ccall('viewer_tab_target',null,[],[]);
+    document.getElementById('canvas')?.focus?.();
+    return true;
+  }
+  const canTarget=()=>window.__thor===state&&Date.now()<state.until&&!!document.querySelector('#hud.show')&&
+    !panel()&&typeof Module!=='undefined'&&typeof Module.ccall==='function';
+  window.addEventListener('click',event=>{
+    if(!event.target?.closest?.('#t-target')||!canTarget()||(retarget===null&&activeAttackRow()===null))return;
+    event.preventDefault();event.stopImmediatePropagation();nextMonster();
+  },true);
+  window.addEventListener('keydown',event=>{
+    if(event.code!=='Tab'||event.repeat||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey||
+       (retarget===null&&activeAttackRow()===null)||!canTarget()||
+       (typeof typing==='function'&&typing())||event.target?.closest?.('input,select,textarea,[contenteditable=true]'))return;
+    event.preventDefault();event.stopImmediatePropagation();nextMonster();
+  },true);
   state.combat=type=>{
     const x=document.getElementById(type==='target'?'t-target':'t-attack');
+    if(type==='target'&&canTarget())return nextMonster();
     if(type==='attack'&&pkEnabled()&&!panel())return forcedAttack();
     if(!x)return false;
     if(type==='attack'&&typeof x.onclick==='function'){x.click();return true}
