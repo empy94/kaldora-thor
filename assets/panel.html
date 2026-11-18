@@ -240,6 +240,8 @@ nav button img{flex:none;margin:0;width:16px;height:16px}
 #nativeControls:not([hidden]){display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin:0}
 #nativeControls button{min-width:0;padding:0}
 #contextLegend{display:flex;flex:none;align-items:center;gap:4px 10px;flex-wrap:wrap;padding:0 3px;color:#aac0c9;font-size:11px;line-height:1.2}
+body:has(#contextLegend:not([hidden]):not(.local-dialog)) #itemOverlay{bottom:32px}
+@media(max-width:420px){body:has(#contextLegend:not([hidden]):not(.local-dialog)) #itemOverlay{bottom:49px}}
 #contextLegend.local-dialog{position:fixed;z-index:35;bottom:4px;left:9px;right:9px;justify-content:center;pointer-events:none}
 #contextLegend[hidden],body.keyboard-open #contextLegend{display:none}
 #contextLegend span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}

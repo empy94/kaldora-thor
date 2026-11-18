@@ -1,11 +1,11 @@
 function inputs() {
-  if(window.__thor?.version===43){
+  if(window.__thor?.version===44){
     if(Date.now()>=window.__thor.until){window.__thor.pk=false;window.__thor.clearCashMarks?.()}
     window.__thor.until=Date.now()+4000;return;
   }
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:43,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
+  const state=window.__thor={version:44,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
   // Kaldora uses part 9 for both shields and off-hand weapons. Its own
   // drawDoll / stoneRisk code identifies a weapon by positive max damage.
   state.socketGearType=item=>{
@@ -110,7 +110,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   const style=document.createElement('style');
   style.textContent='.thor-nav{outline:3px solid #9bdafe!important;outline-offset:2px;box-shadow:0 0 10px #5dbcf2!important}.thor-drag{outline:3px solid #e9bf70!important;outline-offset:2px}';
   style.textContent+='#shop-list .row.thor-nav,#portal-list button.thor-nav{outline:none!important;box-shadow:inset 0 0 0 3px #9bdafe!important}';
-  style.textContent+='#cash-grid .thor-cash-mark:not(.thor-nav){outline:2px solid #e9bf70;outline-offset:-2px}#cash-grid .thor-cash-mark::after{content:"✓";position:absolute;top:2px;left:2px;color:#ffe3a7;background:#251d11;border-radius:3px;padding:0 3px;pointer-events:none}#cash-trash[data-thor-marking]{width:auto;min-width:82px;border-color:#e08778}#cash-trash[data-thor-marking]::after{content:attr(data-thor-marking);padding-right:3px}';
+  style.textContent+='#cash-grid .thor-cash-mark:not(.thor-nav){outline:2px solid #e9bf70;outline-offset:-2px}#cash-grid .thor-cash-mark::after{content:"✓";position:absolute;inset:2px auto auto 2px;width:auto;height:auto;color:#ffe3a7;background:#251d11;border-radius:3px;padding:0 3px;pointer-events:none}#cash-trash[data-thor-marking]{width:auto;min-width:82px;border-color:#e08778}#cash-trash[data-thor-marking]::after{content:attr(data-thor-marking);padding-right:3px}';
   style.textContent+='html.touch .set-row:has(#set-effects),html.touch .set-row:has(#set-bufffx){display:flex!important}';
   document.head.appendChild(style);
   try {
@@ -189,7 +189,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     const trash=event.target?.closest?.('#cash-trash');
     const slot=event.target?.closest?.(cashSlot);
     if(trash){
-      if(!cashMarks&&typeof picked==='function'&&picked())return;
+      if(!cashMarks&&typeof picked==='function'&&picked()?.cash)return;
       event.preventDefault();event.stopImmediatePropagation();
       if(!cashMarks){cashMarks=new Set();refreshCashMarks(cashOwner)}
       else if(cashMarks.size)void destroyMarkedCash(cashOwner);
