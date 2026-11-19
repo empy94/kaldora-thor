@@ -1,11 +1,11 @@
 function inputs() {
-  if(window.__thor?.version===46){
+  if(window.__thor?.version===47){
     if(Date.now()>=window.__thor.until){window.__thor.pk=false;window.__thor.clearCashMarks?.()}
     window.__thor.until=Date.now()+4000;return;
   }
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:46,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
+  const state=window.__thor={version:47,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
   // Kaldora uses part 9 for both shields and off-hand weapons. Its own
   // drawDoll / stoneRisk code identifies a weapon by positive max damage.
   state.socketGearType=item=>{
@@ -423,12 +423,12 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
         return typeof value==='function'?value.bind(target):value;
       }}));
     };
-    let previous=new Set(),l1Used=false;
+    let previous=new Set(),l1Used=false,l1Ready=false,l1Armed=false;
     const repeatAt=new Map();
     function poll(){
       if(window.__thor!==state)return;
       requestAnimationFrame(poll);
-      if(!active()){previous.clear();repeatAt.clear();state.pressed=[];return}
+      if(!active()){previous.clear();repeatAt.clear();l1Ready=l1Armed=false;state.pressed=[];return}
       const menu=panel();
       if(menu&&!buttons(menu).includes(highlighted)){
         const list=buttons(menu);
@@ -436,7 +436,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
       }
       if(!menu&&highlighted)highlight(undefined);
       const pad=Array.from(rawPads()).find(x=>x?.connected);
-      if(!pad){previous.clear();state.pressed=[];return}
+      if(!pad){previous.clear();l1Ready=l1Armed=false;state.pressed=[];return}
       const now=new Set(watched.filter(i=>pad.buttons[i]?.pressed));
       if(!pad.mapping&&pad.axes.length>=8){
         if(pad.axes[6]<-.65)now.add(14);else if(pad.axes[6]>.65)now.add(15);
@@ -450,7 +450,8 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
           navigate(navButtons[i]);repeatAt.set(i,performance.now()+110);
         }
       }
-      if(now.has(4)&&!previous.has(4))l1Used=false;
+      if(now.has(4)&&!previous.has(4)){l1Used=false;l1Armed=l1Ready}
+      if(!now.has(4))l1Ready=true;
       for(const i of now){
         if(previous.has(i))continue;
         state.lastPress={button:i,at:Date.now()};
@@ -472,7 +473,10 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
         else if(i===10||i===11)state.combat(i===10?'target':'attack');
       }
       if(menu&&previous.has(0)&&!now.has(0))navigate('upAccept');
-      if(previous.has(4)&&!now.has(4)&&!l1Used&&state.bind.L1&&(!menu||(state.bind.L1.type==='action'&&state.bind.L1.value==='itemLock')))state.performBinding('L1');
+      if(!now.has(4)&&l1Armed){
+        l1Armed=false;
+        if(!l1Used&&state.bind.L1&&(!menu||(state.bind.L1.type==='action'&&state.bind.L1.value==='itemLock')))state.performBinding('L1');
+      }
       previous=now;
     }
     requestAnimationFrame(poll);
@@ -568,11 +572,12 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   const canTarget=()=>window.__thor===state&&Date.now()<state.until&&!!document.querySelector('#hud.show')&&
     !panel()&&typeof Module!=='undefined'&&typeof Module.ccall==='function';
   window.addEventListener('click',event=>{
-    if(!event.target?.closest?.('#t-target')||!canTarget()||(retarget===null&&activeAttackRow()===null))return;
+    if(!event.isTrusted||!event.target?.closest?.('#t-target')||!canTarget()||(retarget===null&&activeAttackRow()===null))return;
     event.preventDefault();event.stopImmediatePropagation();nextMonster();
   },true);
   window.addEventListener('keydown',event=>{
-    if(event.code!=='Tab'||event.repeat||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey||
+    // The game also synthesizes Tab during its own pad processing.
+    if(!event.isTrusted||event.code!=='Tab'||event.target!==document.getElementById('canvas')||event.repeat||event.altKey||event.ctrlKey||event.metaKey||event.shiftKey||
        (retarget===null&&activeAttackRow()===null)||!canTarget()||
        (typeof typing==='function'&&typing())||event.target?.closest?.('input,select,textarea,[contenteditable=true]'))return;
     event.preventDefault();event.stopImmediatePropagation();nextMonster();
@@ -904,6 +909,7 @@ function action(a) {
       let nativeBindings;try{nativeBindings=JSON.parse(localStorage.getItem('archlord.settings')||'{}')?.pad?.bind}catch{}
       const value=nativeBindings?.[String(index)];
       if(typeof value!=='string'||!value)return false;
+      if(value==='k:Tab')return window.__thor?.combat('target')||false;
       padTapValue(value);return true;
     }
     if(a.value==='1')return false;

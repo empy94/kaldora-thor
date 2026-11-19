@@ -500,7 +500,7 @@ let inspected, inspectedCombo='', lastPress, controllerLayout='';
 document.querySelectorAll('[data-pad]').forEach(el=>el.addEventListener('click',()=>{inspected=Number(el.dataset.pad);inspectedCombo='';controllerLayout='';drawController()}));
 window.padRelease=k=>{
  const index=physical[k];
- if(index!=null){localHeld.delete(index);drawController();if(capture){captureRelease();return}if(k==='BUTTON_A'&&d.nativeMenu&&$('potionPicker').hidden&&$('socketPicker').hidden&&$('skillConfirm').hidden)send('nav','upAccept');if(index===4&&!l1Used&&!mode&&(!d.nativeMenu||activeBindings().L1?.value==='itemLock'))runAssigned('L1')}
+ if(index!=null){const wasHeld=localHeld.delete(index);drawController();if(capture){captureRelease();return}if(k==='BUTTON_A'&&d.nativeMenu&&$('potionPicker').hidden&&$('socketPicker').hidden&&$('skillConfirm').hidden)send('nav','upAccept');if(index===4&&wasHeld&&!l1Used&&!mode&&(!d.nativeMenu||activeBindings().L1?.value==='itemLock'))runAssigned('L1')}
 };
 window.resetPad=()=>{localHeld.clear();drawController()};
 function drawGuide(){
