@@ -22,6 +22,8 @@ Open **Kaldora Thor** to start both displays. If Firefox is missing, the launche
 
 The APK keeps its own saved controller bindings, last panel, skill category, selected macro row, and selected effects setting. The game saves its settings and actual macro contents according to its own rules in Firefox. Updating the application over the same Android package preserves its data.
 
+On the Thor, **Macros** shows eight rows across two pages. Each row has twenty skill slots, a **Repeat**, **Once**, or **Buffs** mode, and its own controller binding. The game owns the slots and modes. **Once** can run while **Repeat** is active.
+
 The Chat tab counts new player messages across game channels while another panel is open. Opening Chat clears the badge. System messages and outgoing whispers do not add to it.
 
 ## Build

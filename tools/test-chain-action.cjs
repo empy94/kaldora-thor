@@ -7,7 +7,7 @@ const button={disabled:false,onclick(){},click(){clicks++;bar.chain^=1}};
 const open={click(){opens++;isOpen=!isOpen}};
 let settingsOpen=false,padHidden=true;const settingsWin={classList:{contains:n=>n==='show'&&settingsOpen}},settingsBtn={click(){settingsOpen=true}},padTab={click(){padHidden=false}},padPane={get hidden(){return padHidden}};
 const doc={querySelector(s){if(s==='#settings')return settingsWin;if(s==='#settings-btn')return settingsBtn;if(s==='#set-tabs button[data-tab="set-pad"]')return padTab;if(s==='#set-pad')return padPane;if(s==='#hud.show')return {};if(s==='#macro-win')return win;if(s==='#macro-btn')return open;if(s==='#mw-rows .mw-chain[data-row="0"]')return button;return null}};
-const ctx={bar,document:doc,macroIds:r=>r===0?[1]:[],macroOnce:()=>onceCalls++,window:{__thor:{chainInfo:()=>[{row:0,expected:bar.chain,linked:!!(bar.chain&1),canToggle:true}]}}};
+const ctx={bar,document:doc,macroIds:r=>r===0?[1]:[],macroOnce:()=>onceCalls++,window:{__thor:{macroMode:r=>r===1?'Buffs':'Repeat',chainInfo:()=>[{row:0,expected:bar.chain,linked:!!(bar.chain&1),canToggle:true}]}}};
 vm.createContext(ctx);vm.runInContext(text,ctx);
 assert.equal(ctx.valid({type:'macroChain',value:{row:0,expected:0}}),true);
 assert.equal(ctx.valid({type:'macroChain',value:{row:3,expected:0}}),false);

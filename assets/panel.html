@@ -235,6 +235,13 @@ section{border-color:#2a3d45;background:linear-gradient(150deg,#17262d,#101a20)}
 nav button{display:flex;align-items:center;justify-content:center;gap:4px;padding:3px 2px;font-size:12px}
 nav button img{flex:none;margin:0;width:16px;height:16px}
 #macroSlots{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;padding:2px 0 5px}
+#macroPages:not([hidden]),#macroModes:not([hidden]){display:flex}
+#macroRows button{flex:1}
+#macroRows .macroRowMode{display:block;color:var(--muted);font-size:10px;margin-top:2px}
+#macroSlots.macro20{grid-template-columns:repeat(10,minmax(0,1fr))}
+#macroSlots.macro20 .slot{min-height:38px;padding:2px;min-width:0}
+#macroSlots.macro20 .slot img{max-width:100%;max-height:34px}
+@media(max-width:480px){#macroSlots.macro20{grid-template-columns:repeat(5,minmax(0,1fr))}}
 #macros>.tools{margin-bottom:5px;gap:5px}
 #macros>.tools button{padding-inline:5px}
 #nativeControls:not([hidden]){display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;margin:0}
@@ -264,7 +271,7 @@ body:has(#contextLegend:not([hidden]):not(.local-dialog)) #itemOverlay{bottom:32
 <section id="sorts"><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="skillCategories" class="chips"></div><div id="skills"></div><div id="heroSkills" class="heroSkills" hidden><div id="heroGrid" class="heroGrid"></div><p id="heroInfo" class="heroInfo"></p><button id="heroBuff" class="heroBuffButton" type="button">Buff up</button></div><div id="skillTools" class="tools"><button id="skillPick" aria-pressed="false">Pick skill</button><select id="skillBind" aria-label="Controller button" hidden></select><button id="recordSkill">Record button</button><button id="assignSkill" hidden>Bind</button><button id="clearSkill">Unbind</button></div></section>
 <section id="map" hidden><p id="mapHint">Waiting for the game map…</p><img id="mapImage" alt="Kaldora map" hidden></section>
 <section id="chat" hidden><div id="filters" class="chips"></div><div id="chatLog"></div><form id="composer"><input id="message" maxlength="120" type="text" placeholder="Message…" aria-label="Message"><button type="button" id="reply" hidden>Whisper</button><button>Send</button></form></section>
-<section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="macroRows" class="tools"></div><div id="chainTools" class="tools" hidden><button id="chainRow" type="button"></button><span id="chainHint"></span></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button><button id="runMacroOnce">Attack once</button></div><p id="macroState"></p></section>
+<section id="macros" hidden><p class="nativeHint" hidden>Controller bindings are managed in the game under Settings → Controller.</p><div id="macroPages" class="tools" role="group" aria-label="Macro pages" hidden></div><div id="macroRows" class="tools"></div><div id="macroModes" class="tools" role="group" aria-label="Row mode" hidden></div><div id="chainTools" class="tools" hidden><button id="chainRow" type="button"></button><span id="chainHint"></span></div><div id="macroSlots"></div><div id="macroPalette" hidden></div><div class="tools"><button id="pickMacroSkill" aria-expanded="false">Pick skill</button><button id="clearMacroSlot">Clear slot</button></div><div class="tools"><select id="macroBind" aria-label="Controller button" hidden></select><button id="recordMacro">Record button</button><button id="bindMacro" hidden>Bind row</button><button id="unbindMacro">Unbind</button><button id="runMacro">Run row</button><button id="runMacroOnce">Attack once</button></div><p id="macroState"></p></section>
 <section id="controls" hidden>
 <div class="controller">
 <svg viewBox="0 0 360 222" role="img" aria-label="Xbox-style controller showing inputs">
@@ -328,7 +335,7 @@ function observeChat(activity){
 }
 let panelPreferences={};
 try { panelPreferences=JSON.parse(localStorage.getItem('panelPreferences')||'{}')||{}; } catch {}
-if(Number.isInteger(panelPreferences.row)&&panelPreferences.row>=0&&panelPreferences.row<4)row=panelPreferences.row;
+if(Number.isInteger(panelPreferences.row)&&panelPreferences.row>=0&&panelPreferences.row<8)row=panelPreferences.row;
 function savePanelPreference(key,value){
  panelPreferences={...panelPreferences,[key]:value};
  try { localStorage.setItem('panelPreferences',JSON.stringify(panelPreferences)); }
@@ -349,6 +356,10 @@ try{
  whisper=localStorage.getItem('lastWhisper')||'';
 }catch{}
 const activeBindings=()=>({...actionBindings,...skillBindings,...macroBindings});
+const supportedBindings=bindings=>d.macroProtocol===2&&d.macroModes?bindings:
+ Object.fromEntries(Object.entries(bindings).filter(([,binding])=>binding.type!=='macro'||Number(binding.value)<4));
+const rowModes=['Repeat','Once','Buffs'];
+const macroLayout=()=>d.macroModes?{layout:'modes'}:{};
 const skillIdentity=s=>s?.tid?'t:'+s.tid:s?.id||'';
 const matchesSkill=(s,value)=>!!s&&(String(value).startsWith('t:')?skillIdentity(s)===value:s.id===value&&!d.nativeUpdate);
 const skillBindingName=value=>d.slots?.find(s=>matchesSkill(s,value))?.name||(d.nativeUpdate&&!String(value).startsWith('t:')?'Previous skill: rebind required':'Assigned skill');
@@ -523,7 +534,7 @@ function drawController(){
  const options=key&&d.online?[
   ['default','Default action'],
   ...Object.entries(actionLabels).filter(([value])=>value!=='itemLock'||!['A4','A5','START','UP','DOWN','LEFT','RIGHT','C4_0','C4_1'].includes(key)).map(([value,label])=>['action:'+value,label]),
-  ...(d.realRows||[]).map((_,i)=>['macro:'+i,'Row '+(i+1)+(d.buffRows?.includes(i)?' · Buff':'')])
+  ...(d.realRows||[]).map((_,i)=>['macro:'+i,'Row '+(i+1)+(d.macroModes?.[i]?' · '+d.macroModes[i]:d.buffRows?.includes(i)?' · Buff':'')])
    .filter(([value])=>!Object.entries(macroBindings).some(([k,b])=>k!==key&&'macro:'+b.value===value)),
   ...[...new Map((d.slots||[]).filter(s=>s.id&&!Object.entries(skillBindings).some(([k,b])=>k!==key&&matchesSkill(s,b.value))).map(s=>[s.id,s])).values()].map(s=>['spell:'+skillIdentity(s),s.name||'Skill'])
  ]:null;
@@ -579,7 +590,7 @@ function updateChoices(preferRowBinding=false){
 }
 updateChoices();
 function save(skills, macros, actions=actionBindings){
- send('bind',{...actions,...skills,...macros},()=>{
+ send('bind',supportedBindings({...actions,...skills,...macros}),()=>{
   try { localStorage.setItem('controllerProfiles',JSON.stringify({skills,macros,actions})); }
   catch { notice('Could not save the binding');return }
   skillBindings=skills;macroBindings=macros;actionBindings=actions;
@@ -616,7 +627,7 @@ $('clearSkill').onclick=()=>{
 function setMacroSlot(tid,expectedValue=null){
  const current=d.realRows?.[row]?.[macroSlot];if(!current||current.item)return;
  const currentTid=Number(current.tid)||0;if(expectedValue!==null&&currentTid!==expectedValue){closeSkillConfirm();notice('Slot changed; choose again');return}
- send('macroSlot',{row,slot:macroSlot,tid:Number(tid),expected:currentTid},()=>{pickMacro=false;closeSkillConfirm();drawMacros();notice('Slot updated')});
+ send('macroSlot',{...macroLayout(),row,slot:macroSlot,tid:Number(tid),expected:currentTid},()=>{pickMacro=false;closeSkillConfirm();drawMacros();notice('Slot updated')});
 }
 let skillChoice=null;
 function closeSkillConfirm(){skillChoice=null;$('skillConfirm').hidden=true}
@@ -639,7 +650,7 @@ $('applySkillConfirm').onclick=()=>{if(!skillChoice||skillChoice.row!==row||skil
 $('pickMacroSkill').onclick=()=>{pickMacro=!pickMacro;drawMacros()};
 $('clearMacroSlot').onclick=()=>setMacroSlot(0);
 $('runMacro').onclick=()=>send('macro',String(row));
-$('runMacroOnce').onclick=()=>send('macroOnce',String(row),()=>notice('Attack requested'));
+$('runMacroOnce').onclick=()=>send('macroOnce',String(row),()=>notice('Once requested'));
 
 let itemSource='',itemTarget=-1;
 function clearItem(){itemSource='';itemTarget=-1;$('itemInfo').textContent='';drawBag()}
@@ -726,14 +737,35 @@ function drawSkills(slots){
  $('skillPick').textContent=pickSkill?'Cancel pick':'Pick skill';
 }
 function drawMacros(){
- const buffRows=d.buffRows||[], attackRow=Number(d.attackRow);
- $('macroRows').replaceChildren(...Array.from({length:4},(_,i)=>btn(
-  'Row '+(i+1)+(attackRow===i?' · Attack':'')+(buffRows.includes(i)?' · Buff':'')+(Object.entries(macroBindings).filter(([,b])=>b.value===String(i)).map(([k])=>' · '+keys[k]).join('')),
-  ()=>{row=i;savePanelPreference('row',i);macroSlot=0;pickMacro=false;closeSkillConfirm();updateChoices(true);drawMacros()},i===row)));
- $('runMacroOnce').disabled=!!d.buffRows?.includes(row)||!d.online;
+ const ready=d.online&&d.macroProtocol===2&&d.realRows?.length>0;
+ const modern=ready&&!!d.macroModes?.length, rows=ready?d.realRows:[];
+ const selected=rows[row]?row:0,page=Math.floor(selected/4);
+ const selectRow=i=>{row=i;savePanelPreference('row',i);macroSlot=0;pickMacro=false;closeSkillConfirm();updateChoices(true);drawMacros()};
+ const pages=$('macroPages');
+ pages.hidden=!modern;
+ pages.replaceChildren(...(modern?['Rows 1–4','Rows 5–8'].map((label,i)=>btn(label,()=>{if(i!==page)selectRow(i*4)},i===page)):[]));
+ $('macroRows').replaceChildren(...rows.slice(page*4,page*4+4).map((_,offset)=>{
+  const i=page*4+offset, binding=Object.entries(macroBindings).find(([,b])=>b.value===String(i));
+  const label=modern?d.macroModes[i]:d.buffRows?.includes(i)?'Buff':d.attackRow===i?'Attack':'';
+  const b=btn('Row '+(i+1)+(binding?' · '+keys[binding[0]]:''),()=>selectRow(i),i===selected);
+  if(label){const detail=document.createElement('small');detail.className='macroRowMode';detail.textContent=label;b.append(detail)}
+  return b;
+ }));
+ const mode=modern?rowModes.indexOf(d.macroModes[selected]):-1, modes=$('macroModes');
+ modes.hidden=!modern;
+ modes.replaceChildren(...(modern?rowModes.map((label,i)=>{
+  const b=btn(label,()=>send('macroMode',{row:selected,mode:i,expected:mode}),i===mode);
+  b.disabled=i===mode||mode<0;return b;
+ }):[]));
+ const usable=!!rows[row];
+ for(const id of ['pickMacroSkill','clearMacroSlot','recordMacro','unbindMacro','runMacro'])$(id).disabled=!usable;
+ $('runMacro').textContent=mode===1?'Cast once':mode===2?'Cast buffs':mode===0?'Toggle repeat':'Run row';
+ $('runMacroOnce').hidden=mode===1||mode===2;
+ $('runMacroOnce').disabled=!usable||!!(!modern&&d.buffRows?.includes(row));
  const chain=d.macroChains?.find(x=>x.row===row);$('chainTools').hidden=!chain;
  if(chain){const button=$('chainRow');button.hidden=!chain.canToggle;button.disabled=!chain.canToggle;button.textContent=(chain.linked?'Unlink':'Link')+' Row '+(row+1)+' + '+(row+2);button.setAttribute('aria-pressed',String(chain.linked));$('chainHint').textContent=(chain.linked?'Linked':'Not linked')+(chain.reason?' · '+chain.reason:chain.linked?' · Rows run together':' · Up to 20 skills');button.onclick=()=>send('macroChain',{row,expected:chain.expected},()=>notice(chain.linked?'Rows unlinked':'Rows linked'))}
- const skills=d.catalog||[], slots=d.realRows?.[row]||[];
+ const skills=d.catalog||[], slots=rows[row]||[];
+ $('macroSlots').classList.toggle('macro20',modern);
  $('macroSlots').replaceChildren(...slots.map((s,i)=>{
   const skill=skills.find(k=>k.tid===s.tid);let pointer=null,suppressClick=false;
   const b=btn('',()=>{if(suppressClick){suppressClick=false;return}if(s.item){notice('Drag this item to move it');return}macroSlot=i;pickMacro=true;drawMacros()},i===macroSlot);
@@ -742,12 +774,12 @@ function drawMacros(){
   b.setAttribute('aria-label',skill?.name||'Slot '+(i+1));
   b.addEventListener('pointerdown',e=>{if(!Number(s.tid))return;pointer={id:e.pointerId,x:e.clientX,y:e.clientY,dragging:false};b.setPointerCapture(e.pointerId)});
   b.addEventListener('pointermove',e=>{if(!pointer||pointer.id!==e.pointerId)return;if(!pointer.dragging&&Math.hypot(e.clientX-pointer.x,e.clientY-pointer.y)>12){pointer.dragging=true;b.classList.add('dragging')};if(pointer.dragging){document.querySelectorAll('#macroSlots .drop-target').forEach(x=>x.classList.remove('drop-target'));document.elementFromPoint(e.clientX,e.clientY)?.closest('#macroSlots .slot')?.classList.add('drop-target')}});
-  b.addEventListener('pointerup',e=>{if(!pointer||pointer.id!==e.pointerId)return;if(pointer.dragging){suppressClick=true;const target=document.elementFromPoint(e.clientX,e.clientY)?.closest('#macroSlots .slot');const to=target?Number(target.dataset.index):-1;if(to>=0&&to!==i&&slots[to])send('macroSwap',{row,from:i,to,expectedFrom:Number(s.tid)||0,expectedTo:Number(slots[to].tid)||0},()=>notice('Slots swapped'));setTimeout(()=>{suppressClick=false},0)}pointer=null;b.classList.remove('dragging');document.querySelectorAll('#macroSlots .drop-target').forEach(x=>x.classList.remove('drop-target'))});
+  b.addEventListener('pointerup',e=>{if(!pointer||pointer.id!==e.pointerId)return;if(pointer.dragging){suppressClick=true;const target=document.elementFromPoint(e.clientX,e.clientY)?.closest('#macroSlots .slot');const to=target?Number(target.dataset.index):-1;if(to>=0&&to!==i&&slots[to])send('macroSwap',{...macroLayout(),row,from:i,to,expectedFrom:Number(s.tid)||0,expectedTo:Number(slots[to].tid)||0},()=>notice('Slots swapped'));setTimeout(()=>{suppressClick=false},0)}pointer=null;b.classList.remove('dragging');document.querySelectorAll('#macroSlots .drop-target').forEach(x=>x.classList.remove('drop-target'))});
   b.addEventListener('pointercancel',()=>{pointer=null;b.classList.remove('dragging');document.querySelectorAll('#macroSlots .drop-target').forEach(x=>x.classList.remove('drop-target'))});
   return b;
  }));
  $('pickMacroSkill').setAttribute('aria-expanded',String(pickMacro));
- $('macroPalette').hidden=!pickMacro;
+ $('macroPalette').hidden=!usable||!pickMacro;
  $('macroPalette').replaceChildren(...skills.map(s=>{
   const b=btn(s.icon?'':s.name,()=>showSkillConfirm(s));
   const placed=slots.some(slot=>!slot.item&&String(slot.tid)===String(s.tid));
@@ -930,9 +962,11 @@ window.renderGame=state=>{
  for(const [id,label] of [['level','Level'],['hp','HP'],['mp','MP'],['xp','EXP']])$(id).textContent=d[id]||label+' —';
  document.querySelectorAll('.fill').forEach((e,i)=>e.style.width=Math.min(100,Math.max(0,d.bars?.[i]||0))+'%');
  if(!d.online){restored=false;lastSelect=null;mapRequested=false}
- if(d.online&&!pending&&!same(d.bindings,activeBindings())&&Date.now()-(restored||0)>2000){restored=Date.now();send('bind',activeBindings())}
+ const syncBindings=supportedBindings(activeBindings());
+ if(d.online&&!pending&&!same(d.bindings,syncBindings)&&Date.now()-(restored||0)>2000){restored=Date.now();send('bind',syncBindings)}
  const status=$('macroState');
- status.textContent=d.online?(d.macro===true?(activeRow?'Attack macro · Row '+activeRow+' ON':'Attack macro ON'):d.macro===false?'Attack macro OFF':''):'Waiting for game in Firefox';
+ status.textContent=d.online?(d.macroProtocol!==2?'Update the Firefox extension to edit macro rows.':
+  d.macro===true?(activeRow?'Attack macro · Row '+activeRow+' ON':'Attack macro ON'):d.macro===false?'Attack macro OFF':''):'Waiting for game in Firefox';
  if(d.lastMacro&&!d.lastMacro.ok&&Date.now()-d.lastMacro.at<2200)status.textContent='Row '+(+d.lastMacro.row+1)+' did not start. Check its slots.';
  if(d.online&&lastSelect!==null&&d.select!==lastSelect)toggleNav();
  lastSelect=d.online?d.select:null;
@@ -951,7 +985,8 @@ window.renderGame=state=>{
   $('chatLog').replaceChildren(...m.map(x=>{const el=document.createElement('div');el.textContent=x.text;el.style.color=x.color;return el}));
   $('chatLog').scrollTop=$('chatLog').scrollHeight;
  });
- changed('macro',[d.realRows,d.catalog,d.buffRows,d.attackRow,d.macroChains],drawMacros);
+ if(d.online&&d.macroProtocol===2&&d.realRows?.length&&!d.realRows[row]){row=0;macroSlot=0;pickMacro=false;closeSkillConfirm()}
+ changed('macro',[d.online,d.macroProtocol,d.realRows,d.catalog,d.buffRows,d.attackRow,d.macroChains,d.macroModes],drawMacros);
  changed('bag',d.inventory,drawBag);
  changed('sets',d.sets,drawGearSets);
  changed('itemDetails',d.itemDetails,drawItemDetails);

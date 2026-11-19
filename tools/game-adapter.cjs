@@ -1,11 +1,11 @@
 function inputs() {
-  if(window.__thor?.version===47){
+  if(window.__thor?.version===48){
     if(Date.now()>=window.__thor.until){window.__thor.pk=false;window.__thor.clearCashMarks?.()}
     window.__thor.until=Date.now()+4000;return;
   }
   if(window.__thor)window.__thor.until=0;
   document.querySelectorAll('.thor-nav,.thor-drag').forEach(x=>x.classList.remove('thor-nav','thor-drag'));
-  const state=window.__thor={version:47,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
+  const state=window.__thor={version:48,until:Date.now()+4000,held:new Map(),bind:{},pk:false};
   // Kaldora uses part 9 for both shields and off-hand weapons. Its own
   // drawDoll / stoneRisk code identifies a weapon by positive max damage.
   state.socketGearType=item=>{
@@ -22,14 +22,19 @@ function inputs() {
     return stone.fx.slice(5).split(',').some(value=>value.trim().toLowerCase()===part);
   };
   let retarget=null;
+  state.modernMacros=()=>typeof bar!=='undefined'&&Array.isArray(bar?.macro)&&Array.isArray(bar?.modes)&&
+    typeof rowMode==='function'&&typeof MACRO_ROWS==='number'&&MACRO_ROWS===8&&
+    typeof MACRO_SLOTS==='number'&&MACRO_SLOTS===20&&bar.macro.length===MACRO_ROWS*MACRO_SLOTS;
+  state.macroMode=row=>state.modernMacros()?['Repeat','Once','Buffs'][rowMode(row)]:
+    row===(bar.bRow??1)||row===(bar.bRow2??-1)?'Buffs':'Repeat';
   state.runMacro=(row)=>{
     row=Number(row);
-    if(!Number.isInteger(row)||row<0||row>3||typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar||typeof BAR_COLS==='undefined')return false;
-    const isBuff=row===(bar.bRow??1)||row===(bar.bRow2??-1);
+    if(!Number.isInteger(row)||row<0||row>=(state.modernMacros()?8:4)||typeof toggleMacro!=='function'||typeof bar==='undefined'||!bar||typeof BAR_COLS==='undefined')return false;
+    const mode=state.macroMode(row);
     const skills=typeof macroIds==='function'?macroIds(row):BAR_COLS.map(col=>slotSkill(10*row+col)).filter(Boolean).map(skill=>skill.id);
-    if(!skills.length&&!isBuff)return false;
+    if(!skills.length&&mode!=='Buffs')return false;
     // A manual attack-macro command takes precedence over an automatic restart.
-    if(!isBuff&&retarget){
+    if(mode==='Repeat'&&retarget){
       const alreadyStopping=retarget.row===row;
       retarget=null;
       if(alreadyStopping)return true;
@@ -37,10 +42,10 @@ function inputs() {
     // The native implementation owns row chaining and buff behavior.
     const before=typeof macroRow==='number'?macroRow:null;
     toggleMacro(row);
-    return isBuff||before===row||typeof macroRow!=='number'||macroRow===row;
+    return mode!=='Repeat'||before===row||typeof macroRow!=='number'||macroRow===row;
   };
   state.chainInfo=()=>{
-    if(typeof bar==='undefined'||!bar||typeof macroSpan!=='function'||typeof rowHasItems!=='function'||typeof ITEM_ROW!=='number')return null;
+    if(state.modernMacros()||typeof bar==='undefined'||!bar||typeof macroSpan!=='function'||typeof rowHasItems!=='function'||typeof ITEM_ROW!=='number')return null;
     const flags=Number(bar.chain)||0;
     return [0,1,2].map(row=>{
       const next=row+1,buffs=[bar.bRow??1,bar.bRow2??-1],linked=macroSpan(row).length>1;
@@ -394,7 +399,7 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
     if(current&&target&&current.contains(target)&&buttons(current).includes(target))highlight(target);
   },true);
   const hasNativePad=()=>typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function';
-  const hasNewNativePad=()=>typeof padTapValue==='function'&&typeof padFrame==='function'&&typeof macroSpan==='function';
+  const hasNewNativePad=()=>typeof padTapValue==='function'&&typeof padFrame==='function'&&(typeof rowMode==='function'||typeof macroSpan==='function');
   const rawPads=navigator.getGamepads?.bind(navigator);
   const navButtons={0:'accept',1:'back',9:'start',12:'up',13:'down',14:'left',15:'right'};
   const watched=[...Object.keys(navButtons).map(Number),4,5,6,7,8,10,11,2,3];
@@ -530,14 +535,14 @@ next.classList.add('thor-nav');next.scrollIntoView({block:'nearest',inline:'near
   const activeAttackRow=()=>{
     const indicator=macroIndicator();
     if(!indicator||indicator.hidden||typeof macroRow!=='number'||macroRow<0||
-       typeof bar==='undefined'||!bar||macroRow===(bar.bRow??1)||macroRow===(bar.bRow2??-1)||
+       typeof bar==='undefined'||!bar||state.macroMode(macroRow)!=='Repeat'||
        typeof macroIds!=='function'||typeof toggleMacro!=='function')return null;
     return macroRow;
   };
   function followRetarget(pending){
     if(retarget!==pending)return;
     if(window.__thor!==state||Date.now()>=pending.until||Date.now()>=state.until||
-       !document.querySelector('#hud.show')||document.querySelector('#respawn.show')||
+       !document.querySelector('#hud.show')||document.querySelector('#respawn.show')||typeof bar==='undefined'||!bar||state.macroMode(pending.row)!=='Repeat'||
        (macroRow>=0&&macroRow!==pending.row)){
       retarget=null;return;
     }
@@ -728,10 +733,16 @@ function view(install) {
       }catch{return null}
     }
     function iconFor(skill){const node=skillTile(skill);return domIcon(node)}
-    realRows=[0,1,2,3].map(row=>BAR_COLS.map((col)=>{
-      const tid=bar.slots[10*row+col]||0;
-      return {tid:String(tid),item:tid<0};
-    }));
+    if(window.__thor.modernMacros()){
+      realRows=Array.from({length:MACRO_ROWS},(_,row)=>Array.from({length:MACRO_SLOTS},(_,slot)=>({
+        tid:String(bar.macro[row*MACRO_SLOTS+slot]||0),item:false
+      })));
+    }else{
+      realRows=[0,1,2,3].map(row=>BAR_COLS.map(col=>{
+        const tid=bar.slots[10*row+col]||0;
+        return {tid:String(tid),item:tid<0};
+      }));
+    }
   }
   if(typeof heroData!=='undefined'&&heroData&&Array.isArray(heroData.chars)&&typeof heroSkill==='function'&&typeof icon==='function'){
     const excluded=new Set((heroData.off||[]).map(String));
@@ -808,8 +819,9 @@ function view(install) {
     chatActivity:{session:chatState.session,total:chatState.total},
     nativePad:typeof pad!=='undefined'&&Array.isArray(pad?.map)&&typeof padFrame==='function',
     nativePadMap:typeof pad!=='undefined'&&Array.isArray(pad?.map)?pad.map.map(value=>({value,label:(typeof PAD_ACTIONS!=='undefined'?PAD_ACTIONS.flatMap(group=>group[1]).find(option=>option[0]===value)?.[1]:null)||value||'Nothing'})):[],
+    macroProtocol:2,macroModes:window.__thor.modernMacros()?realRows.map((_,row)=>window.__thor.macroMode(row)):null,
     buffRows:typeof bar!=='undefined'&&bar?[bar.bRow??1,bar.bRow2??-1]:[],attackRow:typeof bar!=='undefined'&&bar?bar.mRow??0:null,
-    fullscreen:!!document.fullscreenElement,nativeMenu:window.__thor.menu(),menuContext:window.__thor.menuContext(),bindings:window.__thor.bind,lastMacro:window.__thor.lastMacro,nativeUpdate:typeof macroSpan==='function'&&typeof padTapValue==='function',macroChains:window.__thor.chainInfo?.(),
+    fullscreen:!!document.fullscreenElement,nativeMenu:window.__thor.menu(),menuContext:window.__thor.menuContext(),bindings:window.__thor.bind,lastMacro:window.__thor.lastMacro,nativeUpdate:(typeof rowMode==='function'||typeof macroSpan==='function')&&typeof padTapValue==='function',macroChains:window.__thor.chainInfo?.(),
     activeRow:typeof macroRow==='number'?String(macroRow):'',inventory,npc,catalog,realRows,heroes,select:window.__thor.select||0,focused:document.hasFocus(),level:txt('#level'),hp:txt('#hp-text'),mp:txt('#mp-text'),xp:txt('#exp-text'),
     bars:['hp','mp','exp'].map(k=>parseFloat(q('#'+k+'-fill')?.style.width)||0),
     macro:q('#macro-on')?!q('#macro-on').hidden:null,map,
@@ -904,7 +916,7 @@ function action(a) {
       return ok;
     }
     if(binding?.type==='spell')return window.__thor.performBinding((altKey?'A':'')+key);
-    if(typeof padTapValue==='function'&&typeof macroSpan==='function'){
+    if(typeof padTapValue==='function'&&(typeof rowMode==='function'||typeof macroSpan==='function')){
       const index={'2':2,'3':3,'4':5,'5':6,'6':0,'7':1,'8':7}[a.value];
       let nativeBindings;try{nativeBindings=JSON.parse(localStorage.getItem('archlord.settings')||'{}')?.pad?.bind}catch{}
       const value=nativeBindings?.[String(index)];
@@ -972,8 +984,28 @@ function action(a) {
       button.click();return (Number(bar.chain)||0)===(expected^(1<<row));
     }finally{if(!wasOpen&&win.classList.contains('show'))open.click()}
   }
+  if(a.type==='macroMode'){
+    if(!window.__thor?.modernMacros()||typeof toggleLoop!=='function'||typeof saveBar!=='function'||
+       typeof drawMacroWin!=='function'||typeof drawThumbOnce!=='function')return false;
+    const {row,mode,expected}=a.value;
+    if(rowMode(row)!==expected)return false;
+    if(typeof macroRow==='number'&&macroRow===row)toggleLoop(row);
+    bar.modes[row]=mode;
+    saveBar();drawMacroWin();drawThumbOnce();
+    return rowMode(row)===mode;
+  }
   if(a.type==='macroSwap'){
     const {row,from,to,expectedFrom,expectedTo}=a.value;
+    const modern=!!window.__thor?.modernMacros?.();
+    if(modern!==(a.value.layout==='modes'))return false;
+    if(modern){
+      if(typeof mwDrop!=='function')return false;
+      const source=row*MACRO_SLOTS+from,target=row*MACRO_SLOTS+to;
+      if(source===target||!expectedFrom||bar.macro[source]!==expectedFrom||bar.macro[target]!==expectedTo)return false;
+      mwDrop({preventDefault(){},dataTransfer:{getData:()=>`mw:${source}`}},target);
+      return bar.macro[target]===expectedFrom&&bar.macro[source]===expectedTo;
+    }
+    if(typeof rowMode==='function')return false;
     if(typeof bar==='undefined'||!bar||typeof BAR_COLS==='undefined'||typeof dropOnSlot!=='function')return false;
     const source=10*row+BAR_COLS[from],target=10*row+BAR_COLS[to];
     if(source===target||Number(bar.slots[source]||0)!==expectedFrom||Number(bar.slots[target]||0)!==expectedTo||!expectedFrom)return false;
@@ -983,18 +1015,26 @@ function action(a) {
   }
   if(a.type==='macroSlot'){
     const {row,slot,tid,expected}=a.value;
+    const modern=!!window.__thor?.modernMacros?.();
+    if(modern!==(a.value.layout==='modes')||(!modern&&typeof rowMode==='function'))return false;
     if(typeof bar==='undefined'||!bar||typeof mwPlace!=='function'||typeof BAR_COLS==='undefined')return false;
-    const index=10*row+BAR_COLS[slot];
-    if(bar.slots[index]<0||Number(bar.slots[index]||0)!==expected)return false;
+    const index=modern?row*MACRO_SLOTS+slot:10*row+BAR_COLS[slot],slots=modern?bar.macro:bar.slots;
+    if(slots[index]<0||Number(slots[index]||0)!==expected)return false;
     if(tid&&!skillList.some(s=>s.tid===tid&&!s.passive&&skillGroup(s)!==6))return false;
-    mwPlace(index,tid);return true;
+    mwPlace(index,tid);return Number(slots[index]||0)===tid;
   }
   if(a.type==='bind'){if(!window.__thor)return false;window.__thor.bind=a.value;return true}
   if(a.type==='spell'){
     const x=[...document.querySelectorAll('#bar-rows .skill[data-id]')].find(x=>x.dataset.id===a.value&&!x.classList.contains('nomp'));
     if(!x)return false;x.click();return true;
   }
-  if(a.type==='macroOnce'){const row=Number(a.value);if(typeof bar==='undefined'||!bar||typeof macroOnce!=='function'||typeof macroIds!=='function'||(typeof macroRow==='number'&&macroRow>=0)||row===(bar.bRow??1)||row===(bar.bRow2??-1)||!macroIds(row).length)return false;macroOnce(row);return true}
+  if(a.type==='macroOnce'){
+    const row=Number(a.value),state=window.__thor,modern=!!state?.modernMacros?.();
+    if(!state||!Number.isInteger(row)||row<0||row>=(modern?8:4)||typeof bar==='undefined'||!bar||
+       typeof macroOnce!=='function'||typeof macroIds!=='function'||state.macroMode(row)==='Buffs'||
+       (!modern&&typeof macroRow==='number'&&macroRow>=0)||!macroIds(row).length)return false;
+    macroOnce(row);return true;
+  }
   if(a.type==='macro')return window.__thor?.runMacro(a.value)||false;
   if(a.type==='buff'){
     const b=q('#t-buffs');
@@ -1020,7 +1060,7 @@ function valid(a) {
   if(!a||typeof a!=='object')return false;
   if(a.type==='heroBuff')return true;
   const digits=v=>typeof v==='string'&&/^\d{1,9}$/.test(v);
-  const row=v=>typeof v==='string'&&/^[0-3]$/.test(v);
+  const row=v=>typeof v==='string'&&/^[0-7]$/.test(v);
   if(a.type==='nativePad')return Number.isInteger(a.value)&&a.value>=0&&a.value<=15;
   if(a.type==='combo')return typeof a.value==='string'&&/^(?:[4-6]|A[3-6]|C4_[0-35-7]|L1|L3|R3|START|SELECT|UP|DOWN|LEFT|RIGHT)$/.test(a.value);
   if(a.type==='pk')return typeof a.value==='boolean';
@@ -1040,9 +1080,13 @@ function valid(a) {
       used.add(v.value);return true;
     });
   }
-  if(a.type==='macroSlot')return a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<4&&Number.isInteger(a.value.slot)&&a.value.slot>=0&&a.value.slot<10&&Number.isInteger(a.value.tid)&&a.value.tid>=0&&Number.isInteger(a.value.expected)&&a.value.expected>=0;
+  const macroIndex=(value,...slots)=>!!value&&(value.layout===undefined||value.layout==='modes')&&
+    Number.isInteger(value.row)&&value.row>=0&&value.row<(value.layout==='modes'?8:4)&&
+    slots.every(k=>Number.isInteger(value[k])&&value[k]>=0&&value[k]<(value.layout==='modes'?20:10));
+  if(a.type==='macroMode')return !!a.value&&['row','mode','expected'].every(k=>Number.isInteger(a.value[k])&&a.value[k]>=0&&a.value[k]<(k==='row'?8:3))&&a.value.mode!==a.value.expected;
+  if(a.type==='macroSlot')return macroIndex(a.value,'slot')&&Number.isSafeInteger(a.value.tid)&&a.value.tid>=0&&Number.isSafeInteger(a.value.expected)&&a.value.expected>=0;
   if(a.type==='macroChain')return !!a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<3&&Number.isInteger(a.value.expected)&&a.value.expected>=0&&a.value.expected<=7;
-  if(a.type==='macroSwap')return a.value&&Number.isInteger(a.value.row)&&a.value.row>=0&&a.value.row<4&&['from','to'].every(k=>Number.isInteger(a.value[k])&&a.value[k]>=0&&a.value[k]<10)&&['expectedFrom','expectedTo'].every(k=>Number.isSafeInteger(a.value[k]));
+  if(a.type==='macroSwap')return macroIndex(a.value,'from','to')&&['expectedFrom','expectedTo'].every(k=>Number.isSafeInteger(a.value[k])&&(a.value.layout!=='modes'||a.value[k]>=0));
   if(a.type==='potionAssign')return a.value&&Number.isInteger(a.value.slot)&&a.value.slot>=0&&a.value.slot<=1&&digits(a.value.id);
   if(a.type==='gear')return Number.isInteger(a.value)&&a.value>=0&&a.value<4;
   if(a.type==='gearEdit')return true;

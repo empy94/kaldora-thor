@@ -75,6 +75,31 @@ alive=false;ackOff();render(2);
 assert.equal(commands.at(-1),'tab','A death prevents the restart');
 console.log('L1 stops before Tab, resumes on the first confirmed target, and respects manual stop.');
 
+alive=true; commands.length=0;
+Object.assign(ctx,{
+  MACRO_ROWS:8, MACRO_SLOTS:20,
+  rowMode:row=>ctx.bar.modes[row],
+  toggleMacro(row){
+    const mode=ctx.bar.modes[row];
+    if(mode===1){commands.push(['once',row]);return}
+    if(mode===2){commands.push(['buff',row]);return}
+    ctx.macroRow=row;indicator.hidden=false;commands.push(['start',row,ctx.targetData.id]);
+  }
+});
+ctx.bar.macro=Array(160).fill(0);ctx.bar.modes=[1,2,0,0,0,0,1,0];
+ctx.macroRow=7;indicator.hidden=false;
+assert.equal(bridge.runMacro(6),true);
+assert.equal(bridge.runMacro(1),true);
+assert.equal(ctx.macroRow,7);
+next=monster(70);bridge.combat('target');
+assert.equal(bridge.runMacro(6),true);
+ackOff();render();
+assert.deepEqual(commands,[['once',6],['buff',1],'stop','tab',['once',6],['start',7,70]]);
+next=monster(80);bridge.combat('target');
+ctx.bar.modes[7]=1;
+ackOff();render(2);
+assert.deepEqual(commands.slice(-2),['stop','tab'],'Changing a pending Repeat row to Once prevents its restart');
+
 const panelSource = fs.readFileSync('assets/panel.html', 'utf8');
 const releaseCode = panelSource.slice(panelSource.indexOf('window.padRelease='), panelSource.indexOf('window.resetPad='));
 const releaseCalls = [];

@@ -16,4 +16,28 @@ assert.equal(act('macroSlot',{row:0,slot:0,tid:222,expected:0}),true);assert.equ
 assert.equal(ctx.valid({type:'extraBuffRow',value:2}),false);assert.equal(ctx.valid({type:'allBuffs',value:null}),false);
 assert.equal(ctx.valid({type:'bind',value:{'4':{type:'spell',value:'t:670'}}}),true);
 assert.equal(ctx.valid({type:'bind',value:{'4':{type:'spell',value:'t:malformed'}}}),false);
+bar.macro=Array(160).fill(0);bar.modes=Array(8).fill(0);
+let once,stopped;
+Object.assign(ctx,{
+ MACRO_SLOTS:20,macroRow:0,rowMode:row=>bar.modes[row],
+ toggleLoop:row=>{stopped=row},saveBar(){},drawMacroWin(){},drawThumbOnce(){},
+ mwPlace(index,tid){bar.macro[index]=tid},
+ mwDrop(event,target){const from=Number(event.dataTransfer.getData().split(':')[1]);[bar.macro[from],bar.macro[target]]=[bar.macro[target],bar.macro[from]]},
+ macroIds:row=>bar.macro.slice(row*20,row*20+20).filter(Boolean),macroOnce:row=>{once=row}
+});
+ctx.window.__thor={modernMacros:()=>true,macroMode:row=>['Repeat','Once','Buffs'][bar.modes[row]]};
+const lastSlot={layout:'modes',row:7,slot:19,tid:222,expected:0};
+assert.equal(ctx.valid({type:'macroSlot',value:lastSlot}),true);
+assert.equal(ctx.valid({type:'macroSlot',value:{...lastSlot,slot:20}}),false);
+assert.equal(ctx.valid({type:'macroSlot',value:{...lastSlot,row:8}}),false);
+assert.equal(act('macroSlot',lastSlot),true);assert.equal(bar.macro[159],222);assert.equal(bar.slots[2],222);
+assert.equal(act('macroSlot',{row:0,slot:0,tid:0,expected:222}),false,'Old clients cannot turn a macro edit into a hotbar edit');
+assert.equal(act('macroSwap',{layout:'modes',row:7,from:19,to:0,expectedFrom:222,expectedTo:0}),true);
+assert.equal(bar.macro[140],222);assert.equal(bar.macro[159],0);
+assert.equal(act('macroOnce','7'),true);assert.equal(once,7);assert.equal(ctx.macroRow,0);
+assert.equal(ctx.valid({type:'macroMode',value:{row:7,mode:3,expected:0}}),false);
+assert.equal(act('macroMode',{row:7,mode:1,expected:0}),true);assert.equal(bar.modes[7],1);assert.equal(stopped,undefined);
+assert.equal(act('macroMode',{row:7,mode:2,expected:0}),false);
+assert.equal(act('macroMode',{row:0,mode:2,expected:0}),true);assert.equal(stopped,0);
+assert.equal(ctx.valid({type:'bind',value:{'6':{type:'macro',value:'7'}}}),true);
 console.log('Macro swap, stale state, item restrictions, skill confirmation checks passed.');
