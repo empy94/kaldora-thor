@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.display.DisplayManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.Browser;
 import android.view.Display;
@@ -20,6 +21,26 @@ public final class Launcher extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         if (state != null) { finish(); return; }
+        // Reopening the live game must not be interrupted by an update offer.
+        if (LocalBridge.hasLiveGame()) {
+            launchGame();
+        } else {
+            ReleaseUpdater.check(this, this::launchGame);
+        }
+    }
+
+    @Override protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request != ReleaseUpdater.INSTALL_PERMISSION_REQUEST) return;
+        if (getPackageManager().canRequestPackageInstalls() && ReleaseUpdater.openInstaller(this)) return;
+        launchGame();
+    }
+
+    private void launchGame() {
+        if (!"AYN Thor".equalsIgnoreCase(Build.MODEL)) {
+            openInBrowser();
+            return;
+        }
         if (!hasFirefox()) {
             showFirefoxSetup();
             return;
@@ -52,6 +73,23 @@ public final class Launcher extends Activity {
             startActivity(browser, ActivityOptions.makeBasic().setLaunchDisplayId(Display.DEFAULT_DISPLAY).toBundle());
         } catch (RuntimeException unavailable) {
             Toast.makeText(this, "Firefox with the Kaldora Thor extension is required", Toast.LENGTH_LONG).show();
+        }
+        finish();
+    }
+
+    private void openInBrowser() {
+        Intent browser = new Intent(Intent.ACTION_VIEW, Uri.parse(GAME))
+            .addCategory(Intent.CATEGORY_BROWSABLE);
+        try {
+            startActivity(browser);
+        } catch (ActivityNotFoundException unavailable) {
+            new AlertDialog.Builder(this)
+                .setTitle("Web browser required")
+                .setMessage("Install a browser with gamepad support, then reopen Kaldora Thor.")
+                .setPositiveButton(android.R.string.ok, (dialog, choice) -> finish())
+                .setOnCancelListener(dialog -> finish())
+                .show();
+            return;
         }
         finish();
     }
